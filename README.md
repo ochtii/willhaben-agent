@@ -55,7 +55,7 @@ eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 
 | Bereich | Inhalt |
 |---|---|
-| **Links: Suchauftrag** | Suchbegriff, Kategorie, Beschreibung, Preisspanne, Bundesländer (Häkchen), Bezirke, Anzahl Top-Geräte. Die Eingaben werden fürs nächste Mal gemerkt. Darunter eine Kurzübersicht der Keys (bereit, heute verbraucht, zuletzt genutzt). |
+| **Links: Suchauftrag** | Suchbegriff, Kategorie, Beschreibung, Preisspanne, Bundesländer (Häkchen). Unter jedem angehakten Bundesland öffnet **„Bezirke …“** eine Auswahl aller Bezirke (live von willhaben, mit Suche und Anzeigenzahl). Nichts gewählt bedeutet das ganze Bundesland. Dazu Anzahl Top-Geräte. Die Eingaben werden fürs nächste Mal gemerkt. Darunter eine Kurzübersicht der Keys (bereit, heute verbraucht, zuletzt genutzt). |
 | **Einstellungen → API-Keys & Limits** (Strg+K) | **Modell** und **Ausweichmodell** aus der Liste der für deinen Key verfügbaren Gemini-Modelle wählen. Dazu beliebig viele Gemini-Keys: hinzufügen, ändern, testen, ein- und ausschalten, Reihenfolge festlegen, Verteilung gleichmäßig oder nacheinander. Verbrauch und Limits werden live angezeigt. |
 | **Oben: Phasen** | 1. Suche → 2. Details → 3. KI-Bewertung → 4. Endvergleich → 5. Fertig, mit Fortschrittsbalken, Zählern und Laufzeit |
 | **Live-Protokoll** | Terminal-Ansicht: jede Seite, jede Wartezeit, jede KI-Anfrage |

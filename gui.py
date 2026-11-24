@@ -27,7 +27,8 @@ except ModuleNotFoundError:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import settings  # noqa: E402
-from pipeline import Auftrag, Ereignisse, run  # noqa: E402
+from pipeline import Auftrag, Ereignisse, run, region_text  # noqa: E402
+from bezirk_dialog import BezirkDialog, kurzname  # noqa: E402
 from keys import KeyStore, KIFehler, maskiert  # noqa: E402
 from keys_dialog import KeyManager, _zahl  # noqa: E402
 import updater  # noqa: E402
@@ -234,14 +235,21 @@ class App:
         f.pack(fill="x", pady=4)
         ttk.Label(f, text="Bundesland (keins = ganz Österreich)").grid(row=0, column=0, columnspan=3, sticky="w")
         self.bl_vars = {}
+        self.bezirk_auswahl: dict[str, list[tuple[str, str]]] = {}    # Bundesland -> [(Name, areaId)]
         for i, (label, key) in enumerate(BUNDESLAENDER):
             v = tk.BooleanVar()
             self.bl_vars[key] = v
+            v.trace_add("write", lambda *a: self._bezirk_zeilen())
             ttk.Checkbutton(f, text=label, variable=v).grid(row=1 + i // 2, column=i % 2, sticky="w", padx=(0, 6))
-        ttk.Label(f, text="Bezirk(e), kommagetrennt (optional)").grid(row=7, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        # Bezirksauswahl je angehaktem Bundesland (erscheint direkt darunter)
+        self.frm_bezirke = ttk.Frame(f)
+        self.frm_bezirke.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(4, 0))
+        self.frm_bezirke.columnconfigure(1, weight=1)
+        ttk.Label(f, text="Weitere Orte / PLZ (optional, Textfilter)").grid(row=7, column=0, columnspan=3,
+                                                                          sticky="w", pady=(6, 0))
         self.var_bezirk = tk.StringVar()
         ttk.Entry(f, textvariable=self.var_bezirk, width=10).grid(row=8, column=0, columnspan=3, sticky="ew")
-        ttk.Label(f, text="z.B. „Mödling“, „Favoriten, Donaustadt“, „1100“", style="Sub.TLabel").grid(
+        ttk.Label(f, text="z.B. „1100“ oder ein Ortsname – meist nicht nötig", style="Sub.TLabel").grid(
             row=9, column=0, columnspan=3, sticky="w")
 
         # Ergebnis-Optionen
@@ -373,6 +381,48 @@ class App:
         t.tag_configure("dim", foreground="#777")
         self._set_result_placeholder()
 
+    def _bezirk_zeilen(self):
+        """Zeigt unter den Bundesländern je angehaktem Bundesland die gewählten Bezirke + Knopf „Bezirke …“."""
+        for w in self.frm_bezirke.winfo_children():
+            w.destroy()
+        r = 0
+        for label, key in BUNDESLAENDER:
+            if not self.bl_vars[key].get():
+                continue
+            auswahl = self.bezirk_auswahl.get(key, [])
+            ttk.Label(self.frm_bezirke, text=f"{label}:", font=("TkDefaultFont", 9, "bold")).grid(
+                row=r, column=0, sticky="nw", pady=2)
+            if auswahl:
+                namen = [kurzname(n) for n, _ in auswahl]
+                text = ", ".join(namen[:4]) + (f" + {len(namen) - 4} weitere" if len(namen) > 4 else "")
+            else:
+                text = "alle Bezirke"
+            ttk.Label(self.frm_bezirke, text=text, style="Sub.TLabel" if not auswahl else "TLabel",
+                      wraplength=170, justify="left").grid(row=r, column=1, sticky="w", padx=6, pady=2)
+            ttk.Button(self.frm_bezirke, text="Bezirke …", width=9,
+                       command=lambda k=key, l=label: self._bezirke_waehlen(k, l)).grid(row=r, column=2, sticky="e", pady=2)
+            r += 1
+
+    def _bezirke_waehlen(self, key: str, label: str):
+        def ok(liste):
+            self.bezirk_auswahl[key] = liste
+            self._bezirk_zeilen()
+        BezirkDialog(self.root, key, label, self.bezirk_auswahl.get(key, []), ok)
+
+    def _region(self) -> tuple[list[str], list[int], list[str]]:
+        """(Bundesländer ohne Bezirksauswahl, areaIds der gewählten Bezirke, deren Namen)."""
+        laender, ids, namen = [], [], []
+        for _, key in BUNDESLAENDER:
+            if not self.bl_vars[key].get():
+                continue
+            auswahl = self.bezirk_auswahl.get(key, [])
+            if auswahl:
+                ids += [int(aid) for _, aid in auswahl]
+                namen += [kurzname(n) for n, _ in auswahl]
+            else:
+                laender.append(key)
+        return laender, ids, namen
+
     def _wheel(self, canvas, event, direction):
         # nur scrollen, wenn die Maus über der linken Spalte ist
         w = self.root.winfo_containing(event.x_root, event.y_root)
@@ -390,9 +440,11 @@ class App:
         self.txt_beschr.insert("1.0", c.get("beschreibung", ""))
         self.var_von.set(c.get("von", "200"))
         self.var_bis.set(c.get("bis", "600"))
+        self.bezirk_auswahl = {k: [tuple(x) for x in v] for k, v in c.get("bezirke_auswahl", {}).items()}
         for k in c.get("bundeslaender", []):
             if k in self.bl_vars:
                 self.bl_vars[k].set(True)
+        self._bezirk_zeilen()
         self.var_bezirk.set(c.get("bezirke", ""))
         self.var_top.set(str(c.get("top", 10)))
         self.var_max.set(str(c.get("max_anzeigen", 0)))
@@ -408,6 +460,7 @@ class App:
             "von": self.var_von.get(), "bis": self.var_bis.get(),
             "bundeslaender": [k for k, v in self.bl_vars.items() if v.get()],
             "bezirke": self.var_bezirk.get(), "top": self.var_top.get(),
+            "bezirke_auswahl": {k: [list(x) for x in v] for k, v in self.bezirk_auswahl.items() if v},
             "max_anzeigen": self.var_max.get(), "ohne_details": self.var_ohne_details.get(),
             "marktrecherche": self.var_markt.get(),
             "geometry": self.root.geometry(),
@@ -428,13 +481,16 @@ class App:
         return int(s) if s.isdigit() else None
 
     def _auftrag(self) -> Auftrag:
+        laender, area_ids, bezirk_namen = self._region()
         return Auftrag(
             suche=self.var_suche.get().strip(),
             kategorie=self.var_kat.get().strip() or "laptops",
             url=self.var_url.get().strip(),
             von=self._int(self.var_von.get()),
             bis=self._int(self.var_bis.get()),
-            bundeslaender=[k for k, v in self.bl_vars.items() if v.get()],
+            bundeslaender=laender,
+            area_ids=area_ids,
+            bezirk_namen=bezirk_namen,
             bezirke=[b.strip() for b in self.var_bezirk.get().replace(";", ",").split(",") if b.strip()],
             beschreibung=self.txt_beschr.get("1.0", "end").strip(),
             top=self._int(self.var_top.get()) or 10,
@@ -466,7 +522,7 @@ class App:
         self._tick()
         self.nb.select(0)
         self._log(f"Start: {a.suche or a.kategorie} · {a.von or 0}–{a.bis or '∞'} € · "
-                  f"{', '.join(a.bundeslaender + a.bezirke) or 'ganz Österreich'} · Top {a.top}", "info")
+                  f"{region_text(a)} · Top {a.top}", "info")
         ev = GuiEreignisse(self.q)
 
         def work():

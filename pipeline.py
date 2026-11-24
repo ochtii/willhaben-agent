@@ -25,6 +25,7 @@ class Auftrag:
     bundeslaender: list[str] = field(default_factory=list)
     bezirke: list[str] = field(default_factory=list)
     area_ids: list[int] = field(default_factory=list)
+    bezirk_namen: list[str] = field(default_factory=list)   # Namen zu area_ids (nur für Anzeige/Bericht)
     beschreibung: str = ""
     top: int = 10
     max_seiten: int | None = None
@@ -100,13 +101,22 @@ def marktpreise(pairs) -> dict:
     return {"nach_ram": gruppe(ram), "nach_zustand": gruppe(zustand)}
 
 
+def region_text(a: "Auftrag") -> str:
+    from willhaben import BUNDESLAENDER
+    namen = {"wien": "Wien", "niederoesterreich": "Niederösterreich", "oberoesterreich": "Oberösterreich",
+             "steiermark": "Steiermark", "kaernten": "Kärnten", "salzburg": "Salzburg", "tirol": "Tirol",
+             "vorarlberg": "Vorarlberg", "burgenland": "Burgenland"}
+    teile = [namen.get(b, b) for b in a.bundeslaender] + list(a.bezirk_namen) + list(a.bezirke)
+    return ", ".join(teile) or "ganz Österreich"
+
+
 def render_md(a: Auftrag, erg: Ergebnis, by_id, total_found, scored, stats, kiname: str,
               marktlage: str = "", quellen: list | None = None) -> str:
     titel = a.suche or a.kategorie or "Suche"
     lines = [f"# Willhaben-Auswertung: {titel}", "",
              f"*{datetime.now():%d.%m.%Y %H:%M}* · Wunsch: **{a.beschreibung}** · "
              f"Budget: {a.von or 0}–{a.bis or '∞'} € · "
-             f"Region: {', '.join(a.bundeslaender + a.bezirke) or 'ganz Österreich'} · KI: {kiname}", "",
+             f"Region: {region_text(a)} · KI: {kiname}", "",
              f"Durchsucht: **{total_found} Anzeigen**, davon {scored} KI-bewertet · "
              f"Preise: min {stats.get('min', '-')} € / Median {stats.get('median', '-')} € / max {stats.get('max', '-')} €",
              "", "## Marktüberblick", "", erg.zusammenfassung, ""]
@@ -163,7 +173,9 @@ def run(a: Auftrag, ev: Ereignisse | None = None, stop: threading.Event | None =
     if a.bezirke:
         ids, labels, missing = wh.resolve_bezirke(path, params, a.bezirke)
         if ids and not missing:
-            params = [kv for kv in params if kv[0] != "areaId"] + [("areaId", i) for i in ids]
+            # getippte Bezirke ersetzen die Bundesland-Filter; per Auswahl gewählte Bezirke bleiben erhalten
+            params = ([kv for kv in params if kv[0] != "areaId"] + [("areaId", str(i)) for i in a.area_ids]
+                      + [("areaId", i) for i in ids])
             text_bezirke = []
             log(f"📍 Bezirke erkannt: {'; '.join(labels)}")
         else:

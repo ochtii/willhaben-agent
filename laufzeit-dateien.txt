@@ -8,6 +8,7 @@ requirements.txt
 icon.png
 about_dialog.py
 agent.py
+bezirk_dialog.py
 gui.py
 keys.py
 keys_dialog.py
