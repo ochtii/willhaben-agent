@@ -123,6 +123,7 @@ class App:
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         root.after(100, self._poll)
         root.after(1000, self._ki_tick)
+        root.after(300, self._installation_pruefen)
         root.bind("<<NeustartNachUpdate>>", lambda e: self._neustart())
         if self.var_update_start.get():
             root.after(1500, lambda: self.update_pruefen(manuell=False))
@@ -488,6 +489,20 @@ class App:
             self.stop.set()
             self.btn_stop.configure(state="disabled")
             self._log("Abbruch angefordert – wird nach dem aktuellen Schritt beendet …", "warn")
+
+    def _installation_pruefen(self):
+        """Entfernt nicht benötigte Dateien (z.B. nach einem Update durch eine ältere Version) und weist
+        darauf hin, wenn die App noch direkt aus einem Quellordner/Git-Klon läuft."""
+        try:
+            updater.aufraeumen(log=lambda m: self._log(m, "info"))
+        except Exception as e:
+            self._log(f"Aufräumen nicht möglich: {e}", "warn")
+        if (updater.APP_DIR / ".git").exists() and (updater.APP_DIR / "install.sh").exists() \
+                and not self.cfg.get("hinweis_installation"):
+            self._log("Tipp: Diese App läuft direkt aus dem Quellordner. Einmal ./install.sh ausführen – dann "
+                      "liegen nur noch die benötigten Dateien unter ~/.local/share/willhaben-agent und der "
+                      "Quellordner kann weg.", "warn")
+            self.cfg["hinweis_installation"] = True
 
     # ------------------------------------------------------------------ Updates
     def update_pruefen(self, manuell: bool):

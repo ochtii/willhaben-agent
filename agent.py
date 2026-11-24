@@ -69,6 +69,12 @@ def main() -> int:
     p.add_argument("--key-hinzufuegen", nargs=2, metavar=("NAME", "KEY"), help="Gemini-Key speichern und beenden")
     args = p.parse_args()
 
+    try:                                     # nicht benötigte Dateien in Installationen entfernen
+        import updater
+        updater.aufraeumen(log=lambda m: print(m, file=sys.stderr))
+    except Exception:
+        pass
+
     if args.version or args.update:
         import updater
         info = updater.pruefen()
