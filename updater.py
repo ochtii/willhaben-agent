@@ -31,7 +31,6 @@ import plattform
 
 REPO = "ochtii/willhaben-agent"
 BRANCH = "main"
-API = f"https://api.github.com/repos/{REPO}"
 REPO_URL = f"https://github.com/{REPO}"
 APP_DIR = Path(__file__).resolve().parent
 STATUS_DATEI = ".installed_version.json"      # nicht im Repo (siehe .gitignore)
@@ -185,21 +184,41 @@ def _status_schreiben(app_dir: Path, stand: Stand, dateien: list[str] | None = N
 
 
 def _get(url: str, timeout: float, **kw) -> requests.Response:
-    headers = {"Accept": "application/vnd.github+json", "User-Agent": "willhaben-agent-updater"}
-    tok = os.environ.get("GITHUB_TOKEN")             # optional, z.B. für private Repos
-    if tok:
-        headers["Authorization"] = f"Bearer {tok}"
+    """HTTP-Abruf ohne GitHub-API (die erlaubt ohne Anmeldung nur 60 Abfragen pro Stunde)."""
+    headers = {"User-Agent": "git/2.45.0 willhaben-agent-updater"}
     try:
         r = requests.get(url, headers=headers, timeout=timeout, **kw)
     except requests.RequestException as e:
         raise UpdateFehler(f"GitHub nicht erreichbar ({type(e).__name__})") from e
     if r.status_code == 404:
-        raise UpdateFehler("Repository nicht gefunden (privat oder umbenannt?)")
-    if r.status_code == 403 and r.headers.get("X-RateLimit-Remaining") == "0":
-        raise UpdateFehler("GitHub-Abfragelimit erreicht – bitte in einer Stunde erneut versuchen")
+        raise UpdateFehler("Repository oder Datei nicht gefunden (privat oder umbenannt?)")
+    if r.status_code == 429:
+        raise UpdateFehler("GitHub meldet zu viele Anfragen – bitte in ein paar Minuten erneut versuchen")
     if r.status_code >= 400:
         raise UpdateFehler(f"GitHub-Fehler {r.status_code}")
     return r
+
+
+def _version_tupel(v: str) -> tuple[int, ...] | None:
+    try:
+        return tuple(int(x) for x in v.split("."))
+    except (ValueError, AttributeError):
+        return None
+
+
+def _changelog_lesen(text: str) -> list[dict]:
+    """CHANGELOG.md -> [{version, datum, punkte: [...]}], neueste zuerst."""
+    eintraege, aktuell = [], None
+    for zeile in text.splitlines():
+        m = re.match(r"^##\s+v?(\d+\.\d+\.\d+)\s*(?:[–—-]\s*(.+))?$", zeile.strip())
+        if m:
+            aktuell = {"version": m.group(1), "datum": (m.group(2) or "").strip(), "punkte": []}
+            eintraege.append(aktuell)
+        elif aktuell and zeile.strip().startswith(("- ", "* ")):
+            aktuell["punkte"].append(zeile.strip()[2:].strip())
+        elif aktuell and aktuell["punkte"] and zeile.startswith("  ") and zeile.strip():
+            aktuell["punkte"][-1] += " " + zeile.strip()
+    return eintraege
 
 
 # --------------------------------------------------------------------------- Stände
@@ -226,89 +245,84 @@ def lokaler_stand(app_dir: Path = APP_DIR) -> Stand:
     return Stand(st.get("sha", ""), st.get("nummer"), st.get("datum", ""), "", basis_version(app_dir))
 
 
-def remote_stand(timeout: float = 8) -> Stand:
-    r = _get(f"{API}/commits/{BRANCH}", timeout)
-    d = r.json()
-    sha = d["sha"]
-    c = d.get("commit", {})
-    basis = _remote_text("VERSION", timeout).strip() or "1.0"
-    # letzte Stelle = Commits seit der letzten Änderung der VERSION-Datei
-    rv = _get(f"{API}/commits", timeout, params={"sha": BRANCH, "path": "VERSION", "per_page": 1}).json()
-    if rv:
-        v_sha = rv[0]["sha"]
-        nummer = 0 if v_sha == sha else _get(f"{API}/compare/{v_sha}...{sha}", timeout).json().get("ahead_by", 0)
-    else:
-        r2 = _get(f"{API}/commits", timeout, params={"sha": BRANCH, "per_page": 1})
-        m = re.search(r'[?&]page=(\d+)>; rel="last"', r2.headers.get("Link", ""))
-        nummer = int(m.group(1)) if m else len(r2.json())
-    return Stand(sha, nummer, c.get("committer", {}).get("date", ""), (c.get("message") or "").split("\n")[0], basis)
+def remote_sha(timeout: float = 8) -> str:
+    """Neuester Commit auf GitHub – über das Git-Protokoll (wie git pull), nicht über die limitierte API."""
+    r = _get(f"{REPO_URL}.git/info/refs", timeout, params={"service": "git-upload-pack"})
+    m = re.search(rb"([0-9a-f]{40}) refs/heads/" + BRANCH.encode() + rb"\n", r.content)
+    if not m:
+        raise UpdateFehler("Stand auf GitHub nicht lesbar")
+    return m.group(1).decode()
 
 
-def _remote_text(pfad: str, timeout: float = 8) -> str:
-    """Inhalt einer Datei im Repo (Stand main) über die GitHub-API."""
-    import base64
-    d = _get(f"{API}/contents/{pfad}", timeout, params={"ref": BRANCH}).json()
-    return base64.b64decode(d.get("content", "")).decode("utf-8", "replace")
+def _remote_text(pfad: str, timeout: float = 8, ref: str = BRANCH) -> str:
+    """Inhalt einer Datei im Repo über raw.githubusercontent.com (ohne API-Limit)."""
+    r = _get(f"https://raw.githubusercontent.com/{REPO}/{ref}/{pfad}", timeout)
+    r.encoding = "utf-8"
+    return r.text
+
+
+def remote_stand(timeout: float = 8, sha: str | None = None) -> tuple[Stand, list[dict]]:
+    """Stand auf GitHub: Commit per Git-Protokoll, Versionsnummer und Änderungen aus CHANGELOG.md dieses Commits.
+    Die oberste Changelog-Überschrift ist laut Projektregel genau die Version dieses Commits."""
+    sha = sha or remote_sha(timeout)
+    basis = _remote_text("VERSION", timeout, sha).strip() or "1.0"
+    eintraege = _changelog_lesen(_remote_text("CHANGELOG.md", timeout, sha))
+    nummer, datum, nachricht = None, "", ""
+    if eintraege:
+        oben = eintraege[0]
+        teile = oben["version"].rsplit(".", 1)
+        if teile[0] == basis:
+            nummer = int(teile[1])
+        datum = oben["datum"]
+        nachricht = oben["punkte"][0] if oben["punkte"] else ""
+    return Stand(sha, nummer, datum, nachricht, basis), eintraege
 
 
 def verlauf(anzahl: int = 12, timeout: float = 8) -> list[dict]:
     """Versionsverlauf aus CHANGELOG.md auf GitHub: [{version, datum, punkte: [...]}], neueste zuerst."""
-    eintraege, aktuell = [], None
-    for zeile in _remote_text("CHANGELOG.md", timeout).splitlines():
-        m = re.match(r"^##\s+v?(\d+\.\d+\.\d+)\s*(?:[–—-]\s*(.+))?$", zeile.strip())
-        if m:
-            aktuell = {"version": m.group(1), "datum": (m.group(2) or "").strip(), "punkte": []}
-            eintraege.append(aktuell)
-        elif aktuell and zeile.strip().startswith(("- ", "* ")):
-            aktuell["punkte"].append(zeile.strip()[2:].strip())
-        elif aktuell and aktuell["punkte"] and zeile.startswith("  ") and zeile.strip():
-            aktuell["punkte"][-1] += " " + zeile.strip()
-    return eintraege[:anzahl]
+    return _changelog_lesen(_remote_text("CHANGELOG.md", timeout))[:anzahl]
 
 
 def pruefen(app_dir: Path = APP_DIR, timeout: float = 8) -> UpdateInfo:
-    """Vergleicht den installierten Stand mit GitHub. Wirft keine Fehler (siehe .fehler)."""
+    """Vergleicht den installierten Stand mit GitHub. Wirft keine Fehler (siehe .fehler).
+
+    Nutzt keine GitHub-API (60 Abfragen/Stunde ohne Anmeldung), sondern das Git-Protokoll und
+    raw.githubusercontent.com – beides ohne dieses Limit."""
     basis = basis_version(app_dir)
     lokal = lokaler_stand(app_dir)
     info = UpdateInfo(lokal, None, basis)
     try:
-        info.remote = remote_stand(timeout)
+        info.remote, eintraege = remote_stand(timeout)
         if lokal.sha == info.remote.sha:
-            lokal.nummer = info.remote.nummer
+            if info.remote.nummer is not None:
+                lokal.nummer = info.remote.nummer
             return info
-        if not lokal.sha:
-            info.neuer = True
-            info.aenderungen = [info.remote.nachricht]
-            return info
-        r = None
-        for versuch in range(2):          # direkt nach einem Push kennt GitHub den Vergleich manchmal kurz noch nicht
-            try:
-                r = _get(f"{API}/compare/{lokal.sha}...{info.remote.sha}", timeout)
-                break
-            except UpdateFehler as e:
-                if "nicht gefunden" not in str(e):
-                    raise
-                if versuch == 0:
-                    time.sleep(2)
-        if r is None:
-            if lokal.nummer is not None and info.remote.nummer and lokal.nummer < info.remote.nummer:
-                info.neuer = True              # anhand der Versionsnummer entscheiden
+        v_lokal = _version_tupel(info.version_lokal) if lokal.nummer is not None else None
+        v_remote = _version_tupel(info.version_remote) if info.remote.nummer is not None else None
+        if lokal.sha and ist_git(app_dir):
+            try:                       # Git-Klon: liegt der GitHub-Stand schon in der eigenen Historie?
+                _git(app_dir, "merge-base", "--is-ancestor", info.remote.sha, "HEAD", timeout=10)
+                return info            # ja -> lokale (Entwicklungs-)Version ist gleich oder neuer
+            except (UpdateFehler, OSError, subprocess.SubprocessError):
+                pass                   # nein oder unbekannt (noch nicht geholt)
+        if v_lokal and v_remote:
+            info.neuer = v_remote > v_lokal
+            if not info.neuer:
+                return info            # lokale Version ist gleich oder neuer – kein Update nötig
+        else:
+            info.neuer = True          # Version unbekannt, aber anderer Stand auf GitHub
+        if info.neuer:
+            for e in eintraege:
+                v = _version_tupel(e["version"])
+                if v_lokal and v and v <= v_lokal:
+                    break
+                info.aenderungen += [f"v{e['version']}: {p}" for p in e["punkte"]]
+            if not info.aenderungen and info.remote.nachricht:
                 info.aenderungen = [info.remote.nachricht]
-            else:
-                info.fehler = (f"Der installierte Stand {lokal.kurz} ist nicht auf GitHub – vermutlich eine lokale, "
-                               "noch nicht gepushte Entwicklungsversion. Kein Update nötig.")
-            return info
-        cmp = r.json()
-        behind = cmp.get("ahead_by", 0)              # remote ist so viele Commits voraus
-        if lokal.nummer is None and lokal.basis == info.remote.basis and cmp.get("behind_by", 0) == 0:
-            lokal.nummer = info.remote.nummer - behind if info.remote.nummer >= behind else None
-        info.neuer = behind > 0
-        info.aenderungen = [((c.get("commit") or {}).get("message") or "").split("\n")[0]
-                            for c in reversed(cmp.get("commits", []))]
     except UpdateFehler as e:
         info.fehler = str(e)
-    except Exception as e:  # z.B. lokaler Commit existiert auf GitHub nicht (lokale Entwicklung)
-        info.fehler = f"Vergleich nicht möglich ({type(e).__name__})"
+    except Exception as e:
+        info.fehler = f"Update-Prüfung nicht möglich ({type(e).__name__})"
     return info
 
 

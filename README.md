@@ -61,7 +61,7 @@ Danach einen **API-Key** holen (am einfachsten und kostenlos: Google Gemini) und
 
 ## Updates
 
-- **Beim Start** prüft die App im Hintergrund auf GitHub, ob es eine neuere Version gibt. Wenn ja, zeigt sie Versionsnummern und Änderungen an: **Jetzt aktualisieren · Später · Diese Version überspringen**.
+- **Beim Start** prüft die App im Hintergrund auf GitHub, ob es eine neuere Version gibt. Dafür nutzt sie das Git-Protokoll (wie `git pull`) und liest Versionsnummer und Änderungen aus `CHANGELOG.md` – **nicht** die GitHub-API, die ohne Anmeldung nur 60 Abfragen pro Stunde erlaubt. Ein „Abfragelimit erreicht“ gibt es dadurch nicht mehr. Wenn ja, zeigt sie Versionsnummern und Änderungen an: **Jetzt aktualisieren · Später · Diese Version überspringen**.
 - **Von Hand:** Zahnrad → Einstellungen → **Allgemein & Updates** → „Jetzt nach Updates suchen …“. Dort lässt sich auch die Prüfung beim Start abschalten.
 - **Terminal:** `willhaben-agent-cli --version` bzw. `willhaben-agent-cli --update`
 - **Versionsnummer** `1.2.N`: `1.2` steht in der Datei `VERSION` (für größere Sprünge von Hand ändern). **N zählt die Commits seit der letzten Änderung von `VERSION`** und steigt bei jedem Push automatisch. Der Commit, der `VERSION` ändert, ist `.0`.
