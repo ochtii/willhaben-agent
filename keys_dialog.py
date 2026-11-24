@@ -158,6 +158,47 @@ class KeyDialog(tk.Toplevel):
 
 
 
+class AnleitungDialog(tk.Toplevel):
+    """Schritt-für-Schritt: API-Key beim gewählten Anbieter holen und eintragen."""
+
+    def __init__(self, master, provider: str):
+        super().__init__(master)
+        kl = PROVIDER_KLASSEN[provider]
+        self.title(f"API-Key holen – {kl.titel}")
+        self.transient(master)
+        self.resizable(False, False)
+        self.configure(bg=P["bg"])
+        f = ttk.Frame(self, padding=18)
+        f.pack(fill="both", expand=True)
+        ttk.Label(f, text=f"So bekommst du einen API-Key für {kl.titel}",
+                  font=(theme.FONT, 13, "bold")).pack(anchor="w")
+        if getattr(kl, "hinweis", ""):
+            ttk.Label(f, text=kl.hinweis, foreground=P["muted"], wraplength=560, justify="left").pack(
+                anchor="w", pady=(2, 8))
+        for i, schritt in enumerate(getattr(kl, "anleitung", []), 1):
+            zeile = ttk.Frame(f)
+            zeile.pack(fill="x", pady=3)
+            kreis = tk.Canvas(zeile, width=26, height=26, highlightthickness=0, bd=0, bg=P["bg"])
+            kreis.pack(side="left", anchor="n")
+            kreis.create_oval(2, 2, 24, 24, fill=P["accent"], outline="")
+            kreis.create_text(13, 13, text=str(i), fill="#ffffff", font=(theme.FONT, 9, "bold"))
+            ttk.Label(zeile, text=schritt, wraplength=520, justify="left").pack(side="left", padx=(10, 0), anchor="w")
+        ttk.Label(f, text="Den Key wie ein Passwort behandeln: nicht weitergeben. Gespeichert wird er nur auf diesem "
+                          "Computer.", foreground=P["warn"], wraplength=560, justify="left").pack(anchor="w",
+                                                                                                pady=(10, 0))
+        bf = ttk.Frame(f)
+        bf.pack(fill="x", pady=(14, 0))
+        if kl.key_url and provider != "eigener":
+            ttk.Button(bf, text=f"Seite von {kl.titel.split(' (')[0]} öffnen ↗", style="Accent.TButton",
+                       command=lambda: webbrowser.open(kl.key_url)).pack(side="left")
+        import updater
+        anker = "" if provider == "gemini" else "#andere-ki-anbieter"
+        ttk.Button(bf, text="Ausführliche Anleitung ↗", command=lambda: webbrowser.open(
+            f"{updater.REPO_URL}/blob/{updater.BRANCH}/ANLEITUNG-API-KEY.md{anker}")).pack(side="left", padx=6)
+        ttk.Button(bf, text="Schließen", command=self.destroy).pack(side="right")
+        self.bind("<Escape>", lambda e: self.destroy())
+
+
 class KIBereich(ttk.Frame):
     """Anbieter, Modell + Ausweichmodell und alle Keys des Anbieters mit Limits und Verbrauch
     (aktualisiert sich jede Sekunde)."""
@@ -178,11 +219,14 @@ class KIBereich(ttk.Frame):
                                     values=list(PROVIDER_TITEL.values()), height=12)
         self.cb_prov.grid(row=0, column=1, padx=(6, 16), sticky="w")
         self.cb_prov.bind("<<ComboboxSelected>>", lambda e: self._anbieter_wechseln())
+        self.btn_anleitung = ttk.Button(af, text="Anleitung: API-Key holen …",
+                                        command=lambda: AnleitungDialog(self.winfo_toplevel(), self.prov))
+        self.btn_anleitung.grid(row=0, column=2, sticky="w", padx=(0, 16))
         self.lbl_prov_keys = ttk.Label(af, text="", foreground=P["muted"])
-        self.lbl_prov_keys.grid(row=0, column=2, sticky="w")
-        af.columnconfigure(2, weight=1)
+        self.lbl_prov_keys.grid(row=0, column=3, sticky="w")
+        af.columnconfigure(3, weight=1)
         self.lbl_hinweis = ttk.Label(af, text="", foreground=P["muted"], wraplength=980, justify="left")
-        self.lbl_hinweis.grid(row=1, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        self.lbl_hinweis.grid(row=1, column=0, columnspan=4, sticky="w", pady=(6, 0))
         self.frm_url = ttk.Frame(af)
         ttk.Label(self.frm_url, text="Adresse (Basis-URL)").pack(side="left")
         self.var_url = tk.StringVar(value=store.optionen.get("eigene_url", ""))
@@ -299,13 +343,14 @@ class KIBereich(ttk.Frame):
         self.cb_modell.configure(values=[self.var_modell.get()] if self.var_modell.get() else [])
         self.cb_ausweich.configure(values=[KEIN_AUSWEICH] + ([aw] if aw else []))
         self.mf.configure(text=f"KI-Modell ({kl.titel})")
+        self.btn_anleitung.configure(text=f"Anleitung: {kl.titel.split(' (')[0]}-Key holen …")
         self.kf.configure(text=f"Keys für {kl.titel}")
         recherche = ("" if kl.kann_recherche else
                      "Ohne eigene Websuche – die Marktrecherche übernimmt ein anderer Anbieter, für den ein Key "
                      "eingetragen ist (Gemini, Claude, ChatGPT, Perplexity).")
         self.lbl_hinweis.configure(text=" ".join(x for x in (getattr(kl, "hinweis", ""), recherche) if x))
         if self.prov == "eigener":
-            self.frm_url.grid(row=2, column=0, columnspan=3, sticky="w", pady=(6, 0))
+            self.frm_url.grid(row=2, column=0, columnspan=4, sticky="w", pady=(6, 0))
         else:
             self.frm_url.grid_remove()
         for lbl, url in zip(self.links, (kl.key_url, kl.limits_url)):

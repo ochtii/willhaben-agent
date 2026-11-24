@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+import kategorien
 from willhaben import Willhaben, Listing, build_query, filter_bezirk, debug_url
 from rating import Bewerter, Bewertung, Ergebnis
 from keys import KeyStore, Verteiler
@@ -111,9 +112,17 @@ def region_text(a: "Auftrag") -> str:
     return ", ".join(teile) or "ganz Österreich"
 
 
+def kategorie_text(a: Auftrag, kurz: bool = False) -> str:
+    """Lesbarer Name der gewählten Kategorie (kurz = nur die letzte Ebene, z.B. „Notebooks / Laptops“)."""
+    if a.url or not a.kategorie or kategorien.pfad(a.kategorie) == kategorien.MARKTPLATZ:
+        return ""
+    n = kategorien.name(a.kategorie)
+    return n.split(" › ")[-1] if kurz else n
+
+
 def render_md(a: Auftrag, erg: Ergebnis, by_id, total_found, scored, stats, kiname: str,
               marktlage: str = "", quellen: list | None = None) -> str:
-    titel = a.suche or a.kategorie or "Suche"
+    titel = a.suche or kategorie_text(a) or "Suche"
     lines = [f"# Willhaben-Auswertung: {titel}", "",
              f"*{datetime.now():%d.%m.%Y %H:%M}* · Wunsch: **{a.beschreibung}** · "
              f"Budget: {a.von or 0}–{a.bis or '∞'} € · "
@@ -213,7 +222,7 @@ def run(a: Auftrag, ev: Ereignisse | None = None, stop: threading.Event | None =
     out = Path(a.ausgabe).expanduser()
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    slug = re.sub(r"[^a-z0-9]+", "-", (a.suche or a.kategorie or "suche").lower()).strip("-")[:40] or "suche"
+    slug = re.sub(r"[^a-z0-9]+", "-", (a.suche or kategorien.kurzname(kategorien.pfad(a.kategorie or "")) or "suche").lower()).strip("-")[:40] or "suche"
     raw_file = out / f"{stamp}-{slug}-anzeigen.json"
     raw_file.write_text(json.dumps([li.to_dict() for li in listings], ensure_ascii=False, indent=1))
     log(f"💾 Anzeigen gespeichert: {raw_file}")
@@ -229,7 +238,7 @@ def run(a: Auftrag, ev: Ereignisse | None = None, stop: threading.Event | None =
     if a.marktrecherche:
         log("🌐 Marktrecherche: aktuelle Preise & Trends per Websuche …")
         ev.phase("KI-Bewertung", 0, len(to_score))
-        text = bewerter.marktrecherche(a.suche, a.kategorie if not a.url else "", a.beschreibung, a.von, a.bis)
+        text = bewerter.marktrecherche(a.suche, kategorie_text(a, kurz=True) if not a.url else "", a.beschreibung, a.von, a.bis)
         if text:
             log("🌐 Aktuelle Marktlage:\n" + "\n".join("   " + z for z in text.splitlines() if z.strip()))
             if bewerter.quellen:

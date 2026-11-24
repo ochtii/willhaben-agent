@@ -45,13 +45,16 @@ from einstellungen_dialog import EinstellungenDialog  # noqa: E402
 import updater  # noqa: E402
 from update_dialog import UpdateDialog  # noqa: E402
 from about_dialog import AboutDialog  # noqa: E402
-from providers import PROVIDER_KLASSEN, PROVIDER_TITEL  # noqa: E402
-from willhaben import CATEGORIES, Abgebrochen  # noqa: E402
+from providers import PROVIDER_TITEL  # noqa: E402
+import kategorien  # noqa: E402
+from willhaben import Abgebrochen  # noqa: E402
 
 APP_TITLE = "Willhaben KI-Agent"
 BUNDESLAENDER = [("Wien", "wien"), ("Niederösterreich", "niederoesterreich"), ("Oberösterreich", "oberoesterreich"),
                  ("Steiermark", "steiermark"), ("Kärnten", "kaernten"), ("Salzburg", "salzburg"),
                  ("Tirol", "tirol"), ("Vorarlberg", "vorarlberg"), ("Burgenland", "burgenland")]
+ALLE_KAT = "Alle Kategorien"
+ALLE_UNTER = "(alle Unterkategorien)"
 PHASES = ["Suche", "Details", "KI-Bewertung", "Endvergleich", "Fertig"]
 
 
@@ -145,11 +148,6 @@ class App:
         h = tk.Menu(menubar, tearoff=0)
         h.add_command(label="Einstellungen …", command=self.open_einstellungen, accelerator="Strg+K")
         h.add_separator()
-        h.add_command(label="Anleitung: API-Key holen ↗", command=lambda: webbrowser.open(
-            f"{updater.REPO_URL}/blob/{updater.BRANCH}/ANLEITUNG-API-KEY.md"))
-        h.add_command(label="API-Key beim gewählten Anbieter erstellen ↗", command=lambda: webbrowser.open(
-            PROVIDER_KLASSEN[self.store.optionen.get("anbieter", "gemini")].key_url))
-        h.add_separator()
         h.add_command(label="Über …", command=self._ueber)
         menubar.add_cascade(label="Hilfe", menu=h)
         self.root.configure(menu=menubar)
@@ -202,15 +200,25 @@ class App:
         self.var_suche = tk.StringVar()
         ttk.Entry(f, textvariable=self.var_suche, width=10).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 6))
         ttk.Label(f, text="Kategorie").grid(row=2, column=0, sticky="w")
-        self.var_kat = tk.StringVar(value="laptops")
-        ttk.Combobox(f, textvariable=self.var_kat, values=list(CATEGORIES), width=10).grid(
-            row=3, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        self.var_kat = tk.StringVar(value=kategorien.pfad("laptops"))      # willhaben-Pfad der Auswahl
+        kf = ttk.Frame(f)
+        kf.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        kf.columnconfigure(0, weight=1)
+        self.var_kat_haupt, self.var_kat_unter = tk.StringVar(), tk.StringVar()
+        self.cb_kat_haupt = ttk.Combobox(kf, textvariable=self.var_kat_haupt, state="readonly", height=20, width=10,
+                                         values=[ALLE_KAT] + [b[0] for b in kategorien.BAUM])
+        self.cb_kat_haupt.grid(row=0, column=0, sticky="ew")
+        self.cb_kat_unter = ttk.Combobox(kf, textvariable=self.var_kat_unter, state="readonly", height=20, width=10)
+        self.cb_kat_unter.grid(row=1, column=0, sticky="ew", pady=(4, 0))
+        self.cb_kat_haupt.bind("<<ComboboxSelected>>", lambda e: self._kat_haupt_gewaehlt())
+        self.cb_kat_unter.bind("<<ComboboxSelected>>", lambda e: self._kat_unter_gewaehlt())
         ttk.Label(f, text="Kurze Beschreibung / Anforderungen").grid(row=4, column=0, sticky="w")
         self.txt_beschr = tk.Text(f, height=4, width=20, wrap="word", font=("TkDefaultFont", 10), padx=6, pady=4)
         theme.text_farben(self.txt_beschr)
         self.txt_beschr.grid(row=5, column=0, columnspan=2, sticky="ew")
-        ttk.Label(f, text="z.B. „Für Uni & Office, leicht, guter Akku, mind. 16 GB RAM“",
-                  style="Small.TLabel", wraplength=320, justify="left").grid(row=6, column=0, columnspan=2, sticky="w")
+        self.lbl_beispiel = ttk.Label(f, text="", style="Small.TLabel", wraplength=320, justify="left")
+        self.lbl_beispiel.grid(row=6, column=0, columnspan=2, sticky="w")
+        self._kat_setzen(self.var_kat.get())
         f.columnconfigure(0, weight=1)
 
         # Preis
@@ -371,6 +379,35 @@ class App:
         t.tag_configure("dim", foreground=P["muted"])
         self._set_result_placeholder()
 
+    # ------------------------------------------------------------------ Kategorie
+    def _kat_setzen(self, wert: str):
+        """Kategorie (Kurzname oder Pfad) in beide Auswahllisten und den Beispieltext übernehmen."""
+        p = kategorien.pfad(wert or "alle")
+        i, j = kategorien.finden(p)
+        self.var_kat.set(p if i is not None else kategorien.MARKTPLATZ)
+        if i is None:
+            self.var_kat_haupt.set(ALLE_KAT)
+            self.cb_kat_unter.configure(values=[], state="disabled")
+            self.var_kat_unter.set("")
+        else:
+            haupt = kategorien.BAUM[i]
+            self.var_kat_haupt.set(haupt[0])
+            self.cb_kat_unter.configure(values=[ALLE_UNTER] + [u[0] for u in haupt[3]], state="readonly")
+            self.var_kat_unter.set(haupt[3][j][0] if j is not None else ALLE_UNTER)
+        self.lbl_beispiel.configure(text=f"z.B. „{kategorien.beispiel(self.var_kat.get())}“")
+
+    def _kat_haupt_gewaehlt(self):
+        name = self.var_kat_haupt.get()
+        haupt = next((b for b in kategorien.BAUM if b[0] == name), None)
+        self._kat_setzen(haupt[1] if haupt else "alle")
+
+    def _kat_unter_gewaehlt(self):
+        haupt = next((b for b in kategorien.BAUM if b[0] == self.var_kat_haupt.get()), None)
+        if haupt is None:
+            return
+        unter = next((u for u in haupt[3] if u[0] == self.var_kat_unter.get()), None)
+        self._kat_setzen(unter[1] if unter else haupt[1])
+
     def _bezirk_zeilen(self):
         """Zeigt unter den Bundesländern je angehaktem Bundesland die gewählten Bezirke + Knopf „Bezirke …“."""
         for w in self.frm_bezirke.winfo_children():
@@ -426,7 +463,7 @@ class App:
     def _load_form(self):
         c = self.cfg
         self.var_suche.set(c.get("suche", ""))
-        self.var_kat.set(c.get("kategorie", "laptops"))
+        self._kat_setzen(c.get("kategorie", "laptops"))
         self.txt_beschr.insert("1.0", c.get("beschreibung", ""))
         self.var_von.set(c.get("von", "200"))
         self.var_bis.set(c.get("bis", "600"))
@@ -474,7 +511,7 @@ class App:
         laender, area_ids, bezirk_namen = self._region()
         return Auftrag(
             suche=self.var_suche.get().strip(),
-            kategorie=self.var_kat.get().strip() or "laptops",
+            kategorie=self.var_kat.get().strip() or kategorien.MARKTPLATZ,
             url=self.var_url.get().strip(),
             von=self._int(self.var_von.get()),
             bis=self._int(self.var_bis.get()),
@@ -501,7 +538,7 @@ class App:
                                    "eingetragen.\n\nJetzt die Einstellungen öffnen?"):
                 self.open_einstellungen()
             return
-        if a.kategorie not in CATEGORIES and "/" not in a.kategorie and not a.url:
+        if not a.url and not kategorien.ist_bekannt(a.kategorie) and "/" not in a.kategorie:
             messagebox.showerror(APP_TITLE, f"Unbekannte Kategorie „{a.kategorie}“.\nBitte aus der Liste wählen.")
             return
         self._save_form()
@@ -512,7 +549,7 @@ class App:
         self.started_at = datetime.now()
         self._tick()
         self.nb.select(0)
-        self._log(f"Start: {a.suche or a.kategorie} · {a.von or 0}–{a.bis or '∞'} € · "
+        self._log(f"Start: {a.suche or kategorien.name(a.kategorie)} · {a.von or 0}–{a.bis or '∞'} € · "
                   f"{region_text(a)} · Top {a.top}", "info")
         ev = GuiEreignisse(self.q)
 

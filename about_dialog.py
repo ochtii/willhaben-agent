@@ -42,6 +42,20 @@ def _mix(a: str, b: str, t: float) -> str:
     return "#" + "".join(f"{round(x + (y - x) * t):02x}" for x, y in zip(a, b))
 
 
+def _mausrad(widget, canvas) -> None:
+    """Mausrad über `widget` und allen Unterelementen scrollt `canvas` (Linux: Button-4/5, Windows/macOS:
+    MouseWheel). "break" verhindert, dass zusätzlich das Hauptfenster mitscrollt."""
+    def rollen(schritte):
+        if canvas.yview() != (0.0, 1.0):
+            canvas.yview_scroll(schritte, "units")
+        return "break"
+    widget.bind("<Button-4>", lambda e: rollen(-2))
+    widget.bind("<Button-5>", lambda e: rollen(2))
+    widget.bind("<MouseWheel>", lambda e: rollen(-2 if e.delta > 0 else 2))
+    for kind in widget.winfo_children():
+        _mausrad(kind, canvas)
+
+
 class AboutDialog(tk.Toplevel):
     def __init__(self, master, version: str, on_update=None):
         super().__init__(master)
@@ -178,13 +192,14 @@ class AboutDialog(tk.Toplevel):
                 ("↗", "Aktuelle Marktlage", "Live-Recherche im Web plus echte willhaben-Preise.", GRUEN))):
             self._karte(reihe, sym, t, txt, farbe).grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 10, 0))
             reihe.columnconfigure(i, weight=1)
-        self._p(f, "Für Laptops, PCs, Tablets, Handys, Konsolen, Kameras und jede andere willhaben-Kategorie. "
-                   "Gefiltert nach Preis, Bundesland und Bezirk.", fg=GRAU)
+        self._p(f, "Für alle willhaben-Kategorien – 19 Hauptkategorien mit rund 190 Unterkategorien, von Laptops "
+                   "über Ski bis Antiquitäten. Gefiltert nach Preis, Bundesland und Bezirk.", fg=GRAU)
 
     def _tab_funktionen(self, f):
         self._h(f, "Alles drin")
         punkte = [
-            ("Vollständige Suche", "alle Ergebnisseiten, Detailbeschreibungen, Marke, Zustand, Display"),
+            ("Vollständige Suche", "alle willhaben-Kategorien (mit Beispieltext je Kategorie), alle Ergebnisseiten "
+                                   "und Detailbeschreibungen"),
             ("Regionen", "Bundesländer + Bezirksauswahl (live von willhaben), frei kombinierbar"),
             ("KI-Bewertung", "Leistung, Preis/Leistung, Zustand, Warnsignale je Anzeige"),
             ("Endvergleich", "Top-N mit Vor-/Nachteilen, Fazit und Kauftipp"),
@@ -196,7 +211,7 @@ class AboutDialog(tk.Toplevel):
             ("Live-Ansicht", "Protokoll, Anzeigen-Tabelle und Ergebnis in Echtzeit"),
             ("Berichte", "Markdown-Bericht + JSON aller Anzeigen und Bewertungen"),
             ("Updates", "prüft GitHub beim Start, Update mit einem Klick, räumt selbst auf"),
-            ("Einstellungen", "alles in einem Fenster – Zahnrad rechts oben, Hilfe → Einstellungen oder Strg+K"),
+            ("Einstellungen", "alles in einem Fenster (Zahnrad, Hilfe oder Strg+K), mit Key-Anleitung je Anbieter"),
             ("Modernes Design", "helles oder dunkles Erscheinungsbild (Einstellungen → Darstellung)"),
             ("Windows & Linux", "eigene Installer, Startmenü, Updates und Deinstallation"),
         ]
@@ -257,9 +272,7 @@ class AboutDialog(tk.Toplevel):
         canvas.configure(yscrollcommand=sb.set)
         canvas.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
-        for seq, d in (("<Button-4>", -1), ("<Button-5>", 1)):
-            canvas.bind(seq, lambda e, d=d: canvas.yview_scroll(d * 2, "units"))
-            liste.bind(seq, lambda e, d=d: canvas.yview_scroll(d * 2, "units"))
+        _mausrad(canvas, canvas)
         lade = self._p(liste, "Lade Versionsverlauf von GitHub …", fg=GRAU)
         installiert = self._version
 
@@ -292,6 +305,7 @@ class AboutDialog(tk.Toplevel):
                     tk.Label(zeile, text="".join(ch for ch in punkt if ord(ch) <= 0xFFFF), bg=karte["bg"],
                              fg=DUNKEL, font=("TkDefaultFont", 9), justify="left", anchor="w",
                              wraplength=700).pack(side="left", padx=(6, 0), fill="x")
+            _mausrad(liste, canvas)            # auch über den Einträgen (Labels) scrollen
             self._link(f, "Kompletter Verlauf auf GitHub ➜", f"{REPO_URL}/blob/{updater.BRANCH}/CHANGELOG.md").pack(
                 anchor="w", pady=(10, 0))
 

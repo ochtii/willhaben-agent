@@ -770,6 +770,92 @@ GeminiProvider.env_vars = ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEYS"
 GeminiProvider.hinweis = ("Standard. Großzügiger Gratis-Tarif in Google AI Studio, Marktrecherche per "
                           "Google-Suche.")
 
+# Schritt-für-Schritt-Anleitungen „API-Key holen“ (Einstellungen → KI-Anbieter → „Anleitung: API-Key holen“)
+_HINZU = "Hier im Einstellungsfenster bei „Keys für …“ auf „＋ Hinzufügen“ klicken, Key einfügen, „Testen“, „Speichern“."
+GeminiProvider.anleitung = [
+    "aistudio.google.com/apikey öffnen und mit deinem Google-Konto (z.B. Gmail) anmelden.",
+    "Beim ersten Besuch die Nutzungsbedingungen bestätigen (die E-Mail-Häkchen können leer bleiben).",
+    "„API-Schlüssel erstellen“ bzw. „Create API key“ klicken; nach einem Projekt gefragt: vorhandenes wählen oder "
+    "neues erstellen (Name egal).",
+    "Den Key kopieren – er beginnt mit „AIza…“ oder „AQ.…“.",
+    _HINZU,
+    "Kosten: Ohne hinterlegte Zahlungsmethode gilt der kostenlose Tarif (mit Tageslimits pro Modell).",
+]
+OpenAIProvider.anleitung = [
+    "platform.openai.com öffnen und registrieren bzw. anmelden. Achtung: Ein ChatGPT-Abo (Plus/Pro) gilt NICHT "
+    "für die API.",
+    "Unter Settings → Billing eine Zahlungsmethode hinterlegen und Guthaben aufladen (ab 5 $).",
+    "Unter API keys auf „Create new secret key“ klicken, einen Namen vergeben (z.B. willhaben-agent).",
+    "Den Key sofort kopieren (beginnt mit „sk-…“) – er wird nur einmal angezeigt.",
+    _HINZU,
+    "Tipp: Unter Settings → Limits ein monatliches Ausgabenlimit setzen.",
+]
+AnthropicProvider.anleitung = [
+    "console.anthropic.com öffnen und registrieren bzw. anmelden. Achtung: Ein Claude-Abo (Pro/Max) gilt NICHT "
+    "für die API.",
+    "Unter Settings → Billing (Plans & Billing) Guthaben kaufen (ab 5 $).",
+    "Unter Settings → API Keys auf „Create Key“ klicken und einen Namen vergeben.",
+    "Den Key kopieren (beginnt mit „sk-ant-…“) – er wird nur einmal angezeigt.",
+    _HINZU,
+    "Tipp: Unter Settings → Limits ein Ausgabenlimit setzen. Sonnet ist deutlich günstiger als Opus.",
+]
+PerplexityProvider.anleitung = [
+    "perplexity.ai öffnen und anmelden.",
+    "Unter Einstellungen → API (perplexity.ai/account/api) eine Zahlungsmethode hinterlegen und Guthaben laden.",
+    "„Create Key“ bzw. „API-Schlüssel generieren“ klicken.",
+    "Den Key kopieren (beginnt mit „pplx-…“).",
+    _HINZU,
+]
+MistralProvider.anleitung = [
+    "console.mistral.ai öffnen und registrieren bzw. anmelden.",
+    "Einen Tarif wählen: „Experiment“ ist kostenlos (Telefonnummer bestätigen), „Scale“ wird nach Verbrauch "
+    "abgerechnet.",
+    "Unter API Keys auf „Create new key“ klicken.",
+    "Den Key kopieren – er wird nur einmal angezeigt. Neue Keys sind oft erst nach ein paar Minuten aktiv.",
+    _HINZU,
+]
+DeepSeekProvider.anleitung = [
+    "platform.deepseek.com öffnen und registrieren bzw. anmelden.",
+    "Unter Top up Guthaben aufladen (ohne Guthaben antwortet die API nicht).",
+    "Unter API keys auf „Create new API key“ klicken.",
+    "Den Key kopieren (beginnt mit „sk-…“) – er wird nur einmal angezeigt.",
+    _HINZU,
+]
+XAIProvider.anleitung = [
+    "console.x.ai öffnen und anmelden (mit X-Konto, Google oder E-Mail).",
+    "Unter Billing bzw. Credits Guthaben kaufen.",
+    "Unter API Keys auf „Create API Key“ klicken.",
+    "Den Key kopieren (beginnt mit „xai-…“).",
+    _HINZU,
+]
+GroqProvider.anleitung = [
+    "console.groq.com öffnen und anmelden (Google, GitHub oder E-Mail).",
+    "Unter API Keys auf „Create API Key“ klicken – ein Zahlungsmittel ist für den Gratis-Tarif nicht nötig.",
+    "Den Key kopieren (beginnt mit „gsk_…“) – er wird nur einmal angezeigt.",
+    _HINZU,
+    "Hinweis: Der Gratis-Tarif hat kleine Limits pro Minute; der Agent nimmt dafür kleinere Pakete.",
+]
+OpenRouterProvider.anleitung = [
+    "openrouter.ai öffnen und anmelden.",
+    "Unter Credits Guthaben kaufen – für die kostenlosen Modelle (Endung „:free“) nicht nötig.",
+    "Unter Keys auf „Create Key“ klicken, optional ein Ausgabenlimit für den Key setzen.",
+    "Den Key kopieren (beginnt mit „sk-or-…“).",
+    _HINZU,
+]
+TogetherProvider.anleitung = [
+    "api.together.ai öffnen und registrieren bzw. anmelden.",
+    "Unter Billing Guthaben aufladen.",
+    "Unter Settings → API Keys den Key kopieren bzw. einen neuen erstellen.",
+    _HINZU,
+]
+EigenerProvider.anleitung = [
+    "Beim Dienst deiner Wahl (z.B. Azure OpenAI, Fireworks, Cerebras) einen API-Key erstellen.",
+    "Die Basis-Adresse der OpenAI-kompatiblen Schnittstelle heraussuchen – sie endet meist auf „/v1“.",
+    "Hier oben bei „Adresse (Basis-URL)“ eintragen und Enter drücken.",
+    _HINZU,
+    "Kann der Dienst keine Modellliste liefern, den Modellnamen bei „Modell“ selbst eintippen.",
+]
+
 # Reihenfolge = Anzeige in den Einstellungen
 PROVIDER_KLASSEN = {k.name: k for k in (
     GeminiProvider, OpenAIProvider, AnthropicProvider, PerplexityProvider, MistralProvider, DeepSeekProvider,

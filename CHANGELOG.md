@@ -4,6 +4,14 @@ Die Versionsnummer lautet `<VERSION>.<N>`: `VERSION` steht in der gleichnamigen 
 **N** zählt die Commits seit der letzten Änderung dieser Datei und steigt mit jedem Push automatisch.
 Die App zeigt diesen Verlauf unter Hilfe → Über → „Neuigkeiten“.
 
+## 1.2.1 – 2026-11-24
+- Alle willhaben-Kategorien: 19 Hauptkategorien mit rund 190 Unterkategorien, Auswahl in zwei Stufen (Haupt- und Unterkategorie)
+- Passender Beispieltext unter der Beschreibung für jede Kategorie (z. B. Wintersport, Fernseher, LEGO, Antiquitäten)
+- Terminal-Version: „--kategorien“ listet alle Kurznamen; bisherige Kurznamen wie „laptops“ funktionieren weiter
+- Neu in den Einstellungen: Knopf „Anleitung: …-Key holen“ mit Schritt-für-Schritt-Anleitung für den gewählten KI-Anbieter
+- Menü „Hilfe“ aufgeräumt: die beiden API-Key-Einträge sind in die Einstellungen gewandert
+- Behoben: Im Über-Fenster lässt sich der Reiter „Neuigkeiten“ jetzt mit dem Mausrad scrollen (Windows und Linux)
+
 ## 1.2.0 – 2026-11-24
 - Neu: Freie Wahl des KI-Anbieters – Google Gemini (Standard), OpenAI/ChatGPT, Anthropic Claude, Perplexity, Mistral, DeepSeek, xAI Grok, Groq, OpenRouter, Together AI oder eine eigene OpenAI-kompatible Adresse
 - Je Anbieter mehrere Keys, Modell und Ausweichmodell aus der Liste deines Keys (passt sich automatisch an, wenn ein Modell fehlt)

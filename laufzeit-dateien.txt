@@ -12,6 +12,7 @@ agent.py
 bezirk_dialog.py
 einstellungen_dialog.py
 gui.py
+kategorien.py
 keys.py
 keys_dialog.py
 pipeline.py

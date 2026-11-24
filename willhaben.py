@@ -23,23 +23,11 @@ import requests
 BASE = "https://www.willhaben.at"
 DEFAULT_PATH = "kaufen-und-verkaufen/marktplatz"
 
-# Kategorie-Abkürzungen -> willhaben-Pfad (live geprüft). Für alles andere die
-# Such-URL aus dem Browser mit --url übergeben, das funktioniert immer.
-_M = "kaufen-und-verkaufen/marktplatz"
-CATEGORIES = {
-    "alle": _M,
-    "laptops": f"{_M}/computer-tablets/notebooks-5831",
-    "notebooks": f"{_M}/computer-tablets/notebooks-5831",
-    "pcs": f"{_M}/computer-tablets/pcs-5833",
-    "tablets": f"{_M}/computer-tablets/tablets-5834",
-    "ebook-reader": f"{_M}/computer-tablets/e-book-reader-7202",
-    "computer": f"{_M}/computer-software-5824",
-    "pc-komponenten": f"{_M}/computer-software/pc-komponenten-5878",
-    "handys": f"{_M}/smartphones-telefonie-2691",
-    "smartphones": f"{_M}/smartphones-telefonie-2691",
-    "konsolen": f"{_M}/games-konsolen-2785",
-    "kameras": f"{_M}/kameras-tv-multimedia-6808",
-}
+# Kategorien: alle willhaben-Kategorien mit Kurznamen stehen in kategorien.py. Für Sonderfilter
+# die Such-URL aus dem Browser mit --url übergeben, das funktioniert immer.
+import kategorien  # noqa: E402
+
+CATEGORIES = kategorien.KURZ
 
 # areaId der Bundesländer (live geprüft). Bezirke werden über --bezirk automatisch
 # in willhaben-areaIds aufgelöst (siehe Willhaben.resolve_bezirke).
@@ -346,7 +334,7 @@ def build_query(keyword: str | None, price_from: int | None, price_to: int | Non
         params = parse_qsl(u.query)
     else:
         cat = (category or "alle").strip()
-        path = CATEGORIES.get(cat.lower(), cat.strip("/"))
+        path = kategorien.pfad(cat)
 
     def setp(k, v):
         nonlocal params

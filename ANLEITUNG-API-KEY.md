@@ -17,7 +17,7 @@ Dauer: ca. 3 Minuten. Du brauchst nur ein Google-Konto (z. B. dein Gmail-Konto).
 
 Im Browser öffnen: **https://aistudio.google.com/apikey**
 
-Im Agenten geht das auch direkt: Hilfe → **„API-Key beim gewählten Anbieter erstellen ↗“**.
+Im Agenten geht das auch direkt: Einstellungen (Zahnrad) → „KI-Anbieter & Keys“ → **„Anleitung: Google Gemini-Key holen …“** → „Seite öffnen ↗“.
 
 ## 2. Mit dem Google-Konto anmelden
 
@@ -81,7 +81,8 @@ Google hat den Gratis-Zugang in der EU früher zeitweise eingeschränkt. Kommt b
 
 # Andere KI-Anbieter
 
-Im Einstellungsfenster oben unter **„Anbieter“** wählen, dann wie oben Key hinzufügen. Die Modellliste lädt automatisch;
+Im Einstellungsfenster oben unter **„Anbieter“** wählen. Der Knopf daneben, **„Anleitung: …-Key holen“**, zeigt die
+Schritte für genau diesen Anbieter und öffnet dessen Key-Seite. Danach wie oben Key hinzufügen. Die Modellliste lädt automatisch;
 ist das voreingestellte Modell für deinen Key nicht verfügbar, wählt der Agent selbst ein passendes.
 
 | Anbieter | Key erstellen | Umgebungsvariable | Hinweise |

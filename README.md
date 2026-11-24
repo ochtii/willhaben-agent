@@ -80,10 +80,10 @@ Modernes Erscheinungsbild (Sun-Valley-Theme), wahlweise **hell oder dunkel**: Ei
 
 | Bereich | Inhalt |
 |---|---|
-| **Links: Suchauftrag** | Suchbegriff, Kategorie, Beschreibung, Preisspanne, Bundesländer (Häkchen). Unter jedem angehakten Bundesland öffnet **„Bezirke …“** eine Auswahl aller Bezirke (live von willhaben, mit Suche und Anzeigenzahl). Nichts gewählt bedeutet das ganze Bundesland. Dazu Anzahl Top-Geräte. Die Eingaben werden fürs nächste Mal gemerkt. Darunter eine Kurzübersicht der Keys (bereit, heute verbraucht, zuletzt genutzt). |
+| **Links: Suchauftrag** | Suchbegriff, Haupt- und Unterkategorie (alle willhaben-Kategorien, mit passendem Beispieltext), Beschreibung, Preisspanne, Bundesländer (Häkchen). Unter jedem angehakten Bundesland öffnet **„Bezirke …“** eine Auswahl aller Bezirke (live von willhaben, mit Suche und Anzeigenzahl). Nichts gewählt bedeutet das ganze Bundesland. Dazu Anzahl Top-Geräte. Die Eingaben werden fürs nächste Mal gemerkt. Darunter eine Kurzübersicht der Keys (bereit, heute verbraucht, zuletzt genutzt). |
 | **Kopfleiste** | Farbverlauf mit Version, rechts das **Zahnrad** für die Einstellungen |
-| **Menü „Hilfe“** | Einstellungen … (Strg+K), Anleitung API-Key, Key beim gewählten Anbieter erstellen, Über … |
-| **Einstellungen → KI-Anbieter & Keys** | **Anbieter** wählen (Gemini, ChatGPT, Claude, Perplexity, Mistral, DeepSeek, Grok, Groq, OpenRouter, Together, eigene Adresse). **Modell** und **Ausweichmodell** aus der Liste der für deinen Key verfügbaren Modelle (passt sich automatisch an, wenn ein Modell fehlt). Beliebig viele Keys je Anbieter: hinzufügen, ändern, testen, ein- und ausschalten, Reihenfolge festlegen, Verteilung gleichmäßig oder nacheinander. Verbrauch und Limits werden live angezeigt. |
+| **Menü „Hilfe“** | Einstellungen … (Strg+K), Über … |
+| **Einstellungen → KI-Anbieter & Keys** | **Anbieter** wählen (Gemini, ChatGPT, Claude, Perplexity, Mistral, DeepSeek, Grok, Groq, OpenRouter, Together, eigene Adresse). Daneben **„Anleitung: …-Key holen“**: Schritt-für-Schritt-Anleitung für genau diesen Anbieter mit Link zur Key-Seite. **Modell** und **Ausweichmodell** aus der Liste der für deinen Key verfügbaren Modelle (passt sich automatisch an, wenn ein Modell fehlt). Beliebig viele Keys je Anbieter: hinzufügen, ändern, testen, ein- und ausschalten, Reihenfolge festlegen, Verteilung gleichmäßig oder nacheinander. Verbrauch und Limits werden live angezeigt. |
 | **Einstellungen → Darstellung** | Hell oder Dunkel (mit Vorschau) |
 | **Einstellungen → Allgemein & Updates** | Ergebnis-Ordner ändern/öffnen, Update-Prüfung beim Start, „Jetzt nach Updates suchen“, Speicherort der Einstellungen und Keys |
 | **Fortschritt** | Stepper Suche → Details → KI-Bewertung → Endvergleich → Fertig, darunter Fortschrittsbalken und Laufzeit, dazu vier Kacheln (gefunden, Beschreibungen, KI-bewertet, passend) |
@@ -107,9 +107,16 @@ Ergebnisse landen in `~/willhaben-ergebnisse/`:
 
 ## Kategorien
 
-`laptops`, `pcs`, `tablets`, `ebook-reader`, `pc-komponenten`, `computer`, `handys`, `konsolen`, `kameras`, `alle`.
+Alle **19 Hauptkategorien** des willhaben-Marktplatzes mit rund **190 Unterkategorien** (live ermittelt, Nov. 2026) – von
+Antiquitäten über Mode, Sport und Wohnen bis Tiere. Im Fenster wählt man oben die Hauptkategorie und darunter die
+Unterkategorie (oder „alle Unterkategorien“). Für jede Kategorie erscheint unter der Beschreibung ein **passender
+Beispieltext** (z. B. Wintersport: „Ski 160–170 cm mit Bindung, Kanten scharf, frisch gewachst“).
 
-Für jede andere Kategorie oder spezielle Filter: Suche im Browser auf willhaben einstellen und die Adresse ins Feld **„Such-URL aus dem Browser“** kopieren.
+Terminal: `willhaben-agent-cli --kategorien` listet alle Kurznamen (z. B. `fernseher`, `wintersport`,
+`klemmbausteine-lego-playmobil`). Die bisherigen Kurznamen `laptops`, `pcs`, `tablets`, `ebook-reader`, `pc-komponenten`,
+`computer`, `handys`, `konsolen`, `kameras`, `alle` funktionieren weiterhin.
+
+Für spezielle Filter (z. B. Marke, Unter-Unterkategorie): Suche im Browser auf willhaben einstellen und die Adresse ins Feld **„Such-URL aus dem Browser“** kopieren.
 
 ## Hinweise
 
@@ -129,6 +136,7 @@ Für jede andere Kategorie oder spezielle Filter: Suche im Browser auf willhaben
 | `agent.py` | Terminal-Version |
 | `pipeline.py` | gemeinsamer Ablauf |
 | `willhaben.py` | Scraper |
+| `kategorien.py` | alle willhaben-Kategorien mit Pfad, Kurzname und Beispieltext |
 | `rating.py` | KI-Bewertung (Prompts, Pakete, Endvergleich) |
 | `providers.py` | Anbindung an alle KI-Anbieter (Gemini, Claude per `anthropic`-SDK, OpenAI-kompatible), Fehler- und Limit-Erkennung |
 | `keys.py` | Key-Speicher, Verbrauchszähler, automatischer Verteiler |

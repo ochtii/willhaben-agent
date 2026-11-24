@@ -515,7 +515,7 @@ class Verteiler:
         if not teile:
             n = self.reihenfolge[0]
             return (f"Kein API-Key für {PROVIDER_TITEL[n]} eingetragen. In den Einstellungen (Zahnrad rechts oben) "
-                    "mindestens einen Key hinzufügen (Anleitung: Hilfe → „Anleitung: API-Key holen“).")
+                    "mindestens einen Key hinzufügen (dort auch: „Anleitung: API-Key holen“).")
         return "Kein Key mehr verfügbar – alle Limits erreicht oder Keys ungültig:\n  " + "\n  ".join(teile)
 
     # -- Anfrage

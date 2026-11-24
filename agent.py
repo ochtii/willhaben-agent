@@ -30,7 +30,8 @@ import settings  # noqa: E402
 from keys import KeyStore, KIFehler, maskiert
 from providers import PROVIDER_KLASSEN, PROVIDER_TITEL
 from pipeline import Auftrag, run
-from willhaben import CATEGORIES, Abgebrochen
+import kategorien
+from willhaben import Abgebrochen
 
 
 def keys_anzeigen(store: KeyStore, anbieter: str) -> None:
@@ -57,7 +58,9 @@ def keys_anzeigen(store: KeyStore, anbieter: str) -> None:
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--suche", default="", help="Suchbegriff, z.B. 'thinkpad'")
-    p.add_argument("--kategorie", default="laptops", help=f"{', '.join(CATEGORIES)} oder willhaben-Pfad")
+    p.add_argument("--kategorie", default="laptops",
+                   help="Kurzname (z.B. laptops, fernseher, wintersport – Liste mit --kategorien) oder willhaben-Pfad")
+    p.add_argument("--kategorien", action="store_true", help="alle willhaben-Kategorien mit Kurznamen auflisten")
     p.add_argument("--url", default="", help="Alternativ: Such-URL aus dem Browser")
     p.add_argument("--von", type=int, help="Mindestpreis in €")
     p.add_argument("--bis", type=int, help="Höchstpreis in €")
@@ -92,6 +95,15 @@ def main() -> int:
     except Exception:
         pass
 
+    if args.kategorien:
+        for name, pfad, _, unter in kategorien.BAUM:
+            print(f"{kategorien.kurzname(pfad):34} {name}")
+            for u in unter:
+                k = kategorien.kurzname(u[1])
+                k = k if kategorien.KURZ.get(k) == u[1] else u[1].rsplit("/", 1)[-1]
+                print(f"  {k:32} {u[0]}")
+        print("\nZusätzlich: alle, laptops, pcs, tablets, handys, konsolen, kameras, ebook-reader, pc-komponenten")
+        return 0
     if args.version or args.update:
         import updater
         info = updater.pruefen()
