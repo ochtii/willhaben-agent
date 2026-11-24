@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# vom Installer erzeugte Startskripte
+/willhaben-agent
+/willhaben-agent-cli
+
+# Archive und Ergebnisse
+*.zip
+ergebnisse/
+willhaben-ergebnisse/
+beispiel-bericht*.md
+*-anzeigen.json
+*-bewertungen.json
+*-top*.md
+
+# lokale Schlüssel / Einstellungen (liegen ohnehin in ~/.config)
+keys.json
+config.json
+.env
