@@ -47,7 +47,7 @@ from einstellungen_dialog import EinstellungenDialog  # noqa: E402
 import updater  # noqa: E402
 from update_dialog import UpdateDialog  # noqa: E402
 from about_dialog import AboutDialog  # noqa: E402
-from providers import PROVIDER_TITEL  # noqa: E402
+from providers import PROVIDER_KLASSEN, PROVIDER_TITEL  # noqa: E402
 import kategorien  # noqa: E402
 from willhaben import Abgebrochen  # noqa: E402
 
@@ -253,15 +253,22 @@ class App:
         ttk.Label(f, text="Bundesland (keins = ganz Österreich)").grid(row=0, column=0, columnspan=3, sticky="w")
         self.bl_vars = {}
         self.bezirk_auswahl: dict[str, list[tuple[str, str]]] = {}    # Bundesland -> [(Name, areaId)]
+        self.bezirk_links: dict[str, ttk.Label] = {}
         for i, (label, key) in enumerate(BUNDESLAENDER):
             v = tk.BooleanVar()
             self.bl_vars[key] = v
             v.trace_add("write", lambda *a: self._bezirk_zeilen())
-            ttk.Checkbutton(f, text=label, variable=v).grid(row=1 + i // 2, column=i % 2, sticky="w", padx=(0, 6))
-        # Bezirksauswahl je angehaktem Bundesland (erscheint direkt darunter)
-        self.frm_bezirke = ttk.Frame(f)
-        self.frm_bezirke.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(4, 0))
-        self.frm_bezirke.columnconfigure(1, weight=1)
+            zelle = ttk.Frame(f)
+            zelle.grid(row=1 + i // 2, column=i % 2, sticky="nw", padx=(0, 6))
+            ttk.Checkbutton(zelle, text=label, variable=v).pack(anchor="w")
+            # klickbarer Text direkt unter dem Bundesland (nur sichtbar, wenn es angehakt ist)
+            link = ttk.Label(zelle, text="", style="Bezirk.TLabel", cursor="hand2", wraplength=150, justify="left")
+            link.bind("<Button-1>", lambda e, k=key, l=label: self._bezirke_waehlen(k, l))
+            link.bind("<Enter>", lambda e, w=link: w.configure(style="BezirkHover.TLabel"))
+            link.bind("<Leave>", lambda e, w=link: w.configure(style="Bezirk.TLabel"))
+            self.bezirk_links[key] = link
+        f.columnconfigure(0, weight=1, uniform="bl")
+        f.columnconfigure(1, weight=1, uniform="bl")
         ttk.Label(f, text="Weitere Orte / PLZ (optional, Textfilter)").grid(row=7, column=0, columnspan=3,
                                                                           sticky="w", pady=(6, 0))
         self.var_bezirk = tk.StringVar()
@@ -279,25 +286,14 @@ class App:
         self.var_max = tk.StringVar(value="0")
         ttk.Spinbox(f, from_=0, to=10000, increment=50, textvariable=self.var_max, width=6).grid(
             row=1, column=1, sticky="w", padx=6, pady=(4, 0))
-        self.var_ohne_details = tk.BooleanVar()
-        ttk.Checkbutton(f, text="Schnellmodus (nur Kurzbeschreibung laden)",
-                        variable=self.var_ohne_details).grid(row=2, column=0, columnspan=2, sticky="w", pady=(4, 0))
         self.var_markt = tk.BooleanVar(value=True)
         ttk.Checkbutton(f, text="Aktuelle Marktlage per Websuche einbeziehen",
-                        variable=self.var_markt).grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        ttk.Label(f, text="Oder: Such-URL aus dem Browser (überschreibt Kategorie)").grid(
-            row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        self.var_url = tk.StringVar()
-        ttk.Entry(f, textvariable=self.var_url, width=10).grid(row=4, column=0, columnspan=2, sticky="ew")
+                        variable=self.var_markt).grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
         # KI
         f = ttk.LabelFrame(form, text="KI & API-Keys", style="Section.TLabelframe", padding=10)
         f.pack(fill="x", pady=5)
-        self.lbl_ki = ttk.Label(f, text="", justify="left", wraplength=320)
-        self.lbl_ki.pack(anchor="w", fill="x")
-        self.lbl_ki_live = ttk.Label(f, text="", style="Sub.TLabel", justify="left", wraplength=320)
-        self.lbl_ki_live.pack(anchor="w", fill="x", pady=(4, 0))
-        ttk.Button(f, text="KI-Anbieter & Keys …", command=self.open_einstellungen).pack(fill="x", pady=(8, 0))
+        self._ki_feld_bauen(f)
 
         # ---------------- rechte Seite
         right = ttk.Frame(main, padding=(8, 12, 14, 12))
@@ -520,26 +516,20 @@ class App:
         self._kat_setzen(unter[1] if unter else haupt[1])
 
     def _bezirk_zeilen(self):
-        """Zeigt unter den Bundesländern je angehaktem Bundesland die gewählten Bezirke + Knopf „Bezirke …“."""
-        for w in self.frm_bezirke.winfo_children():
-            w.destroy()
-        r = 0
+        """Unter jedem angehakten Bundesland: „Alle Bezirke“ bzw. „Bezirke … (Favoriten, Donaustadt)“ als Link."""
         for label, key in BUNDESLAENDER:
+            link = self.bezirk_links[key]
             if not self.bl_vars[key].get():
+                link.pack_forget()
                 continue
             auswahl = self.bezirk_auswahl.get(key, [])
-            ttk.Label(self.frm_bezirke, text=f"{label}:", font=("TkDefaultFont", 9, "bold")).grid(
-                row=r, column=0, sticky="nw", pady=2)
             if auswahl:
                 namen = [kurzname(n) for n, _ in auswahl]
-                text = ", ".join(namen[:4]) + (f" + {len(namen) - 4} weitere" if len(namen) > 4 else "")
+                text = "Bezirke … (" + ", ".join(namen[:3]) + (f" +{len(namen) - 3}" if len(namen) > 3 else "") + ")"
             else:
-                text = "alle Bezirke"
-            ttk.Label(self.frm_bezirke, text=text, style="Sub.TLabel" if not auswahl else "TLabel",
-                      wraplength=170, justify="left").grid(row=r, column=1, sticky="w", padx=6, pady=2)
-            ttk.Button(self.frm_bezirke, text="Bezirke …", width=9,
-                       command=lambda k=key, l=label: self._bezirke_waehlen(k, l)).grid(row=r, column=2, sticky="e", pady=2)
-            r += 1
+                text = "Alle Bezirke"
+            link.configure(text=text)
+            link.pack(anchor="w", padx=(28, 0), pady=(0, 4))
 
     def _bezirke_waehlen(self, key: str, label: str):
         def ok(liste):
@@ -586,7 +576,6 @@ class App:
         self.var_bezirk.set(c.get("bezirke", ""))
         self.var_top.set(str(c.get("top", 10)))
         self.var_max.set(str(c.get("max_anzeigen", 0)))
-        self.var_ohne_details.set(bool(c.get("ohne_details", False)))
         self.var_markt.set(bool(c.get("marktrecherche", True)))
         self._ki_refresh()
 
@@ -599,7 +588,7 @@ class App:
             "bundeslaender": [k for k, v in self.bl_vars.items() if v.get()],
             "bezirke": self.var_bezirk.get(), "top": self.var_top.get(),
             "bezirke_auswahl": {k: [list(x) for x in v] for k, v in self.bezirk_auswahl.items() if v},
-            "max_anzeigen": self.var_max.get(), "ohne_details": self.var_ohne_details.get(),
+            "max_anzeigen": self.var_max.get(),
             "marktrecherche": self.var_markt.get(),
             "geometry": self.root.geometry(),
         })
@@ -623,7 +612,7 @@ class App:
         return Auftrag(
             suche=self.var_suche.get().strip(),
             kategorie=self.var_kat.get().strip() or kategorien.MARKTPLATZ,
-            url=self.var_url.get().strip(),
+            url="",
             von=self._int(self.var_von.get()),
             bis=self._int(self.var_bis.get()),
             bundeslaender=laender,
@@ -633,7 +622,7 @@ class App:
             beschreibung=self.txt_beschr.get("1.0", "end").strip(),
             top=self._int(self.var_top.get()) or 10,
             max_anzeigen=self._int(self.var_max.get()) or None,
-            ohne_details=self.var_ohne_details.get(),
+            ohne_details=False,
             marktrecherche=self.var_markt.get(),
             ausgabe=str(self._outdir()),
         )
@@ -778,33 +767,69 @@ class App:
 
     open_keys = open_einstellungen
 
+    def _ki_feld_bauen(self, f):
+        """Kompakte KI-Übersicht: Anbieter mit Status, Modell, Ausweichmodell, Verbrauch heute, Websuche."""
+        kopf = ttk.Frame(f)
+        kopf.pack(fill="x")
+        self.lbl_ki_anbieter = ttk.Label(kopf, text="", font=(theme.FONT, 11, "bold"))
+        self.lbl_ki_anbieter.pack(side="left")
+        self.lbl_ki_status = tk.Label(kopf, text="", font=(theme.FONT, 8, "bold"), padx=8, pady=2)
+        self.lbl_ki_status.pack(side="right")
+        tabelle = ttk.Frame(f)
+        tabelle.pack(fill="x", pady=(8, 0))
+        tabelle.columnconfigure(1, weight=1)
+        self.ki_werte = {}
+        for i, (schluessel, titel) in enumerate((("modell", "Modell"), ("ausweich", "Ausweich"),
+                                                  ("heute", "Heute"), ("web", "Websuche"))):
+            ttk.Label(tabelle, text=titel, style="Small.TLabel").grid(row=i, column=0, sticky="w", pady=1)
+            w = ttk.Label(tabelle, text="", font=(theme.FONT, 9))
+            w.grid(row=i, column=1, sticky="w", padx=(12, 0), pady=1)
+            self.ki_werte[schluessel] = w
+        ttk.Separator(f).pack(fill="x", pady=(8, 6))
+        self.lbl_ki_live = ttk.Label(f, text="", style="Small.TLabel", justify="left", wraplength=320)
+        self.lbl_ki_live.pack(anchor="w", fill="x")
+        ttk.Button(f, text="⚙  KI-Anbieter & Keys …", command=self.open_einstellungen).pack(fill="x", pady=(8, 0))
+
     def _ki_refresh(self):
-        """Kurzübersicht der Keys im Hauptfenster."""
+        """Kurzübersicht der KI im Hauptfenster (alle 2 s aktualisiert)."""
         st = self.store
         anbieter = st.optionen.get("anbieter", "gemini")
+        kl = PROVIDER_KLASSEN.get(anbieter)
         alle = st.eintraege(anbieter)
         aktiv = [e for e in alle if e.get("aktiv", True)]
         bereit = [e for e in aktiv if st.status_text(e).startswith(("bereit", "Pause"))]
         heute = sum(st.nutzung(e["id"]).get("anfragen", 0) for e in alle)
-        modell = st.optionen.get("modelle", {}).get(anbieter) or "–"
-        ausweich = st.optionen.get("ausweich", {}).get(anbieter) or "–"
-        vert = "gleichmäßig" if st.optionen.get("verteilung") == "gleichmaessig" else "nacheinander"
-        keys_txt = (f"{len(bereit)}/{len(aktiv)} Keys bereit ({vert}) · heute {heute} Anfr." if alle else "kein Key")
-        self.lbl_ki.configure(text=tk_safe(f"{PROVIDER_TITEL[anbieter]}: {keys_txt}\n"
-                                           f"Modell: {modell} · Ausweich: {ausweich}"))
+        token = sum(st.nutzung(e["id"]).get("token", 0) for e in alle)
+        self.lbl_ki_anbieter.configure(text=PROVIDER_TITEL.get(anbieter, anbieter))
+        if not aktiv:
+            status, farbe = "kein Key", P["danger"]
+        elif bereit:
+            status, farbe = f"{len(bereit)}/{len(aktiv)} Key{'s' if len(aktiv) > 1 else ''} bereit", P["ok"]
+        else:
+            status, farbe = "Limit erreicht", P["warn"]
+        self.lbl_ki_status.configure(text=status, fg=farbe, bg=theme.mix(farbe, P["bg"], 0.85))
+        o = st.optionen
+        self.ki_werte["modell"].configure(text=o.get("modelle", {}).get(anbieter) or "–")
+        self.ki_werte["ausweich"].configure(text=o.get("ausweich", {}).get(anbieter) or "–")
+        self.ki_werte["heute"].configure(text=f"{heute} Anfrage{'n' if heute != 1 else ''}"
+                                         + (f" · {_zahl(token)} Token" if token else ""))
+        if kl is not None and kl.kann_recherche:
+            web = "ja"
+        elif any(getattr(k, "kann_recherche", False) and any(e.get("aktiv", True) for e in st.eintraege(n))
+                 for n, k in PROVIDER_KLASSEN.items() if n != anbieter):
+            web = "über einen anderen Anbieter"
+        else:
+            web = "nicht verfügbar"
+        self.ki_werte["web"].configure(text=web)
         letzte = max(alle, key=lambda e: st.nutzung(e["id"]).get("zuletzt", 0), default=None)
         if letzte and st.nutzung(letzte["id"]).get("zuletzt"):
-            u, lim = st.nutzung(letzte["id"]), st.limits(letzte)
-            srv = u.get("server", {})
-            rest = f" · Server: noch {_zahl(srv['rest_anfragen'])} Anfr." if "rest_anfragen" in srv else ""
-            rpd = lim["rpd"][0]
+            u = st.nutzung(letzte["id"])
             self.lbl_ki_live.configure(text=tk_safe(
-                f"Zuletzt: {PROVIDER_TITEL[letzte['provider']]} „{letzte['label']}“ – "
-                f"{u.get('anfragen', 0)}/{_zahl(rpd) if rpd else '?'}{'*' if lim['rpd'][1] == 'Annahme' else ''} "
-                f"heute, {st.status_text(letzte)}{rest}"))
+                f"Zuletzt genutzt: „{letzte['label']}“ um {datetime.fromtimestamp(u['zuletzt']):%H:%M} – "
+                f"{st.status_text(letzte)}"))
         else:
-            self.lbl_ki_live.configure(text="Noch keine KI-Anfrage." if alle else
-                                       "→ Unten auf „KI-Anbieter & Keys …“ klicken und einen Key hinzufügen.")
+            self.lbl_ki_live.configure(text="Noch keine KI-Anfrage." if aktiv else
+                                       "Noch kein Key – unten auf „KI-Anbieter & Keys …“ klicken.")
 
     def _ki_tick(self):
         if self.root.winfo_exists():

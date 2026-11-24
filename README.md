@@ -80,7 +80,8 @@ Modernes Erscheinungsbild (Sun-Valley-Theme), wahlweise **hell oder dunkel**: Ei
 
 | Bereich | Inhalt |
 |---|---|
-| **Links: Suchauftrag** | Suchbegriff, Haupt- und Unterkategorie (alle willhaben-Kategorien, mit passendem Beispieltext), Beschreibung, Preisspanne, Bundesländer (Häkchen). Unter jedem angehakten Bundesland öffnet **„Bezirke …“** eine Auswahl aller Bezirke (live von willhaben, mit Suche und Anzeigenzahl). Nichts gewählt – oder der Knopf **„Alle Bezirke“**, der alle Häkchen entfernt – bedeutet das ganze Bundesland. Dazu Anzahl Top-Geräte. Die Eingaben werden fürs nächste Mal gemerkt. Darunter eine Kurzübersicht der Keys (bereit, heute verbraucht, zuletzt genutzt). |
+| **Links: Suchauftrag** | Suchbegriff, Haupt- und Unterkategorie (alle willhaben-Kategorien, mit passendem Beispieltext), Beschreibung, Preisspanne, Bundesländer (Häkchen). Direkt unter jedem angehakten Bundesland steht ein klickbarer Text: **„Alle Bezirke“** oder – wenn Bezirke gewählt sind – **„Bezirke … (Favoriten, Donaustadt)“**. Ein Klick öffnet die Auswahl aller Bezirke (live von willhaben, mit Suche und Anzeigenzahl); dort entfernt **„Alle Bezirke“** alle Häkchen (= ganzes Bundesland). Im Feld „Auswertung“: Anzahl Top-Geräte, max. Anzahl Anzeigen für die KI und die Marktrecherche. Die Eingaben werden fürs nächste Mal gemerkt. |
+| **Links: KI & API-Keys** | Übersicht des gewählten KI-Anbieters mit farbigem Status („1/1 Key bereit“, „Limit erreicht“, „kein Key“), Modell, Ausweichmodell, Verbrauch heute (Anfragen, Token), ob eine Websuche für die Marktrecherche verfügbar ist und wann der Key zuletzt genutzt wurde. Der Knopf öffnet die Einstellungen. |
 | **Kopfleiste** | Farbverlauf mit Version, rechts das **?** (Über-Fenster mit Funktionen, Anleitung, Neuigkeiten, F1) und das **Zahnrad** (Einstellungen, Strg+K). Eine Menüleiste gibt es nicht mehr. |
 | **Einstellungen → KI-Anbieter & Keys** | **Anbieter** wählen (Gemini, ChatGPT, Claude, Perplexity, Mistral, DeepSeek, Grok, Groq, OpenRouter, Together, eigene Adresse). Daneben **„Anleitung: …-Key holen“**: Schritt-für-Schritt-Anleitung für genau diesen Anbieter mit Link zur Key-Seite. **Modell** und **Ausweichmodell** aus der Liste der für deinen Key verfügbaren Modelle (passt sich automatisch an, wenn ein Modell fehlt). Beliebig viele Keys je Anbieter: hinzufügen, ändern, testen, ein- und ausschalten, Reihenfolge festlegen, Verteilung gleichmäßig oder nacheinander. Verbrauch und Limits werden live angezeigt. |
 | **Einstellungen → Darstellung** | Hell oder Dunkel (mit Vorschau) |
@@ -118,7 +119,7 @@ Terminal: `willhaben-agent-cli --kategorien` listet alle Kurznamen (z. B. `ferns
 `klemmbausteine-lego-playmobil`). Die bisherigen Kurznamen `laptops`, `pcs`, `tablets`, `ebook-reader`, `pc-komponenten`,
 `computer`, `handys`, `konsolen`, `kameras`, `alle` funktionieren weiterhin.
 
-Für spezielle Filter (z. B. Marke, Unter-Unterkategorie): Suche im Browser auf willhaben einstellen und die Adresse ins Feld **„Such-URL aus dem Browser“** kopieren.
+Für spezielle Filter (z. B. Marke, Unter-Unterkategorie) kann die Terminal-Version eine Such-Adresse aus dem Browser übernehmen: `willhaben-agent-cli --url "https://www.willhaben.at/iad/…"`.
 
 ## Hinweise
 

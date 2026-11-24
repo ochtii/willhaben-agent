@@ -35,6 +35,42 @@ def mix(a: str, b: str, t: float) -> str:
     return "#" + "".join(f"{round(x + (y - x) * t):02x}" for x, y in zip(a_, b_))
 
 
+def _labels_schuetzen(root: tk.Misc, st: ttk.Style):
+    """sv-ttk färbt bei <<ThemeChanged>> per tk_setPalette alle Widgets fest ein – auch ttk-Labels. Deren Farbe kommt
+    dann nicht mehr aus dem Stil (Sub.TLabel = grau, Link = blau …). Hier wird das rückgängig gemacht und neue
+    ttk-Labels werden von der Palette ausgenommen."""
+    for opt in ("*TLabel.foreground", "*TLabel.background"):
+        root.option_add(opt, "", "interactive")
+    if getattr(root, "_labels_geschuetzt", False):
+        return
+    root._labels_geschuetzt = True
+    geplant = []
+
+    def freigeben():
+        geplant.clear()
+        fg, bg = str(st.lookup(".", "foreground")), str(st.lookup(".", "background"))
+
+        def durch(w):
+            for kind in w.winfo_children():
+                if kind.winfo_class() == "TLabel":
+                    for opt, wert in (("foreground", fg), ("background", bg)):
+                        try:
+                            if str(kind.cget(opt)) == wert:
+                                kind.configure(**{opt: ""})
+                        except tk.TclError:
+                            pass
+                durch(kind)
+        try:
+            durch(root)
+        except tk.TclError:
+            pass
+
+    def ereignis(_e=None):
+        if not geplant:                       # das Ereignis kommt für jedes Widget einzeln – nur einmal aufräumen
+            geplant.append(root.after_idle(freigeben))
+    root.bind("<<ThemeChanged>>", ereignis, add="+")
+
+
 def anwenden(root: tk.Misc, modus: str = "hell") -> dict:
     """Theme setzen und eigene Stile anlegen. Gibt die Palette zurück."""
     global MODUS
@@ -45,12 +81,13 @@ def anwenden(root: tk.Misc, modus: str = "hell") -> dict:
     try:
         import sv_ttk
         sv_ttk.set_theme("dark" if MODUS == "dunkel" else "light", root)
+        _labels_schuetzen(root, st)
     except Exception:
         if "clam" in st.theme_names():
             st.theme_use("clam")
-        P["bg"] = st.lookup("TFrame", "background") or P["bg"]
+        P["bg"] = str(st.lookup("TFrame", "background") or P["bg"])
 
-    bg = st.lookup("TFrame", "background") or P["bg"]
+    bg = str(st.lookup("TFrame", "background") or P["bg"])
     P["bg"] = bg
     root.configure(bg=bg) if isinstance(root, (tk.Tk, tk.Toplevel)) else None
 
@@ -62,6 +99,8 @@ def anwenden(root: tk.Misc, modus: str = "hell") -> dict:
     st.configure("Section.TLabelframe", padding=10)
     st.configure("Start.TButton", font=(FONT, 11, "bold"), padding=(10, 8))
     st.configure("Link.TLabel", foreground=P["accent"], font=(FONT, 10, "underline"))
+    st.configure("Bezirk.TLabel", foreground=P["accent"], font=(FONT, 9))
+    st.configure("BezirkHover.TLabel", foreground=P["accent"], font=(FONT, 9, "underline"))
     st.configure("Treeview", rowheight=28)
     st.configure("Treeview.Heading", font=(FONT, 9, "bold"))
     st.configure("Card.TFrame", background=P["card"])

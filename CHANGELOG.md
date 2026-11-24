@@ -4,6 +4,12 @@ Die Versionsnummer lautet `<VERSION>.<N>`: `VERSION` steht in der gleichnamigen 
 **N** zählt die Commits seit der letzten Änderung dieser Datei und steigt mit jedem Push automatisch.
 Die App zeigt diesen Verlauf im Über-Fenster (**?** rechts oben) unter „Neuigkeiten“.
 
+## 1.2.8 – 2026-11-24
+- Bezirke: statt eines Knopfs steht unter jedem gewählten Bundesland ein klickbarer Text – „Alle Bezirke“ oder „Bezirke … (Favoriten, Donaustadt)“
+- Feld „Auswertung“ aufgeräumt: das Eingabefeld für eine Such-URL und der Schnellmodus sind entfallen (die Such-URL gibt es weiterhin in der Terminal-Version)
+- Feld „KI & API-Keys“ neu gestaltet: Anbieter mit farbigem Status, darunter Modell, Ausweichmodell, Verbrauch heute und Websuche übersichtlich als Tabelle
+- Behoben: Graue Hinweistexte und blaue Links wurden seit dem neuen Design in normaler Textfarbe angezeigt – die Farben stimmen jetzt wieder
+
 ## 1.2.7 – 2026-11-24
 - Bezirksauswahl vereinfacht: „Alle Bezirke“ entfernt alle Häkchen und sucht damit im ganzen Bundesland; der Knopf „Keine“ ist entfallen
 
