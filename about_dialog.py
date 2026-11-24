@@ -242,7 +242,7 @@ class AboutDialog(tk.Toplevel):
             ("Viele KI-Anbieter", "Gemini (Standard), ChatGPT, Claude, Perplexity, Mistral, DeepSeek, Grok, Groq, "
                                   "OpenRouter, Together, eigene Adresse – mit Modell + Ausweichmodell"),
             ("Mehrere Keys", "je Anbieter, automatisch verteilt; Verbrauch und Limits live, Pausen bei Überlastung"),
-            ("Live-Ansicht", "Animation, Fortschritt, Protokoll, Anzeigen-Tabelle und Ergebnis in Echtzeit"),
+            ("Live-Ansicht", "Animation, Gesamtfortschritt in %, Protokoll, Anzeigen und Ergebnis in Echtzeit"),
             ("Berichte", "jeder Lauf als Bericht gespeichert; frühere Berichte im Reiter „Berichte“ ansehen"),
             ("Updates", "prüft GitHub beim Start, Update mit einem Klick, räumt selbst auf"),
             ("Einstellungen", "alles in einem Fenster (Zahnrad oder Strg+K), mit Key-Anleitung je Anbieter"),

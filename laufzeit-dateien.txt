@@ -12,6 +12,7 @@ agent.py
 berichte.py
 bezirk_dialog.py
 einstellungen_dialog.py
+fortschritt.py
 gui.py
 kategorien.py
 keys.py

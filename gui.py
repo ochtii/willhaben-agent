@@ -42,6 +42,7 @@ from bezirk_dialog import BezirkDialog, kurzname  # noqa: E402
 from keys import KeyStore, KIFehler, maskiert  # noqa: E402
 from keys_dialog import _zahl  # noqa: E402
 from berichte import BerichteTab  # noqa: E402
+from fortschritt import Gesamtschaetzung  # noqa: E402
 from einstellungen_dialog import EinstellungenDialog  # noqa: E402
 import updater  # noqa: E402
 from update_dialog import UpdateDialog  # noqa: E402
@@ -410,16 +411,25 @@ class App:
         self.lauf_anim.pack(pady=(18, 8))
         self.lbl_lauf_phase = ttk.Label(f, text="", font=(theme.FONT, 13, "bold"), foreground=P["accent"])
         self.lbl_lauf_phase.pack()
+        # Gesamtfortschritt (groß, läuft auch während KI-Anfragen weiter)
+        zeile = ttk.Frame(f)
+        zeile.pack(fill="x", pady=(12, 3))
+        ttk.Label(zeile, text="Gesamtfortschritt", font=(theme.FONT, 10, "bold")).pack(side="left")
+        self.lbl_lauf_prozent = ttk.Label(zeile, text="0 %", font=(theme.FONT, 12, "bold"), foreground=P["accent"])
+        self.lbl_lauf_prozent.pack(side="right")
+        self.lauf_balken = theme.Fortschritt(f, hoehe=14)
+        self.lauf_balken.pack(fill="x")
+        # aktueller Schritt (klein)
         zeile = ttk.Frame(f)
         zeile.pack(fill="x", pady=(10, 2))
         self.lbl_lauf_schritt = ttk.Label(zeile, text="", style="Status.TLabel")
         self.lbl_lauf_schritt.pack(side="left")
-        self.lbl_lauf_prozent = ttk.Label(zeile, text="", font=(theme.FONT, 9, "bold"))
-        self.lbl_lauf_prozent.pack(side="right")
-        self.lauf_balken = theme.Fortschritt(f, hoehe=12)
-        self.lauf_balken.pack(fill="x")
+        self.lbl_lauf_warten = ttk.Label(zeile, text="", style="Status.TLabel")
+        self.lbl_lauf_warten.pack(side="right")
+        self.lauf_schritt_balken = theme.Fortschritt(f, hoehe=6)
+        self.lauf_schritt_balken.pack(fill="x")
         self.lbl_lauf_zeit = ttk.Label(f, text="", style="Status.TLabel")
-        self.lbl_lauf_zeit.pack(anchor="e", pady=(2, 0))
+        self.lbl_lauf_zeit.pack(anchor="e", pady=(4, 0))
         karte = tk.Frame(f, bg=P["card"], highlightthickness=1, highlightbackground=P["rand"], padx=14, pady=10)
         karte.pack(fill="x", pady=(16, 0))
         tk.Label(karte, text="Suchauftrag", bg=P["card"], fg=P["accent"], font=(theme.FONT, 10, "bold")).pack(
@@ -445,17 +455,25 @@ class App:
                          wraplength=250, justify="left").grid(row=i, column=1, sticky="w", pady=1)
             self.lbl_lauf_phase.configure(text="Starte …")
             self.lbl_lauf_schritt.configure(text="")
-            self.lbl_lauf_prozent.configure(text="")
+            self.lbl_lauf_warten.configure(text="")
+            self.lbl_lauf_prozent.configure(text="0 %")
+            self.schaetzung = Gesamtschaetzung(ohne_details=a.ohne_details)
+            self._phase_info = ("", 0, 0)
             self.lbl_lauf_zeit.configure(text="Laufzeit 00:00")
             self.frm_eingabe.pack_forget()
             self.frm_lauf.pack(fill="both", expand=True)
             self.btn_start.pack_forget()
             self.btn_stop.pack(side="left", fill="x", expand=True, padx=0, ipady=4)
             self.lauf_anim.start()
-            self.lauf_balken.unbestimmt()
+            self.lauf_balken.setzen(0, 1)
+            self.lauf_schritt_balken.unbestimmt()
+            self._lauf_aktiv = True
+            self._fortschritt_takt()
         else:
+            self._lauf_aktiv = False
             self.lauf_anim.stop()
             self.lauf_balken.anhalten()
+            self.lauf_schritt_balken.anhalten()
             self.frm_lauf.pack_forget()
             self.frm_eingabe.pack(fill="both", expand=True)
             self.btn_stop.pack_forget()
@@ -810,6 +828,7 @@ class App:
             v.set("0")
         self.progress.leeren()
         self.lauf_balken.leeren()
+        self.lauf_schritt_balken.leeren()
         self.stepper.setzen(-1)
         self.result_file = None
         self._marktlage = ("", [])
@@ -852,24 +871,54 @@ class App:
     def _set_phase(self, name, done, total):
         if name in PHASES:
             self.stepper.setzen(PHASES.index(name), fertig=(name == "Fertig"))
-        lauf = self.worker is not None and self.worker.is_alive()
-        if total:
-            for balken in (self.progress, self.lauf_balken):
-                balken.setzen(done, total) if lauf and name != "Fertig" else balken.anhalten(voll=True)
-            text = "Fertig" if name == "Fertig" else f"{name}: {done} / {total}"
-            prozent = f"{100 * done / total:.0f} %" if total else ""
-        else:
-            for balken in (self.progress, self.lauf_balken):
-                balken.unbestimmt()
-            text, prozent = f"{name} …", ""
-        self.lbl_status.configure(text=text)
+        if getattr(self, "schaetzung", None) is not None:
+            self.schaetzung.melden(name, done, total)
+        self._phase_info = (name, done, total)
         self.lbl_lauf_phase.configure(text=PHASEN_TEXT.get(name, name))
-        self.lbl_lauf_schritt.configure(text=(f"{done} von {total}" if total else "bitte warten …"))
-        self.lbl_lauf_prozent.configure(text=prozent)
-        if not total:
-            return
-        if name == "Details":
+        if name == "Details" and total:
             self.counter["details"].set(str(done))
+        self._fortschritt_zeigen()
+
+    def _fortschritt_takt(self):
+        """Viermal pro Sekunde: Gesamtfortschritt neu schätzen, damit nichts „hängt“."""
+        if getattr(self, "_lauf_aktiv", False):
+            self._fortschritt_zeigen()
+            self.root.after(250, self._fortschritt_takt)
+
+    def _fortschritt_zeigen(self):
+        sch = getattr(self, "schaetzung", None)
+        name, done, total = getattr(self, "_phase_info", ("", 0, 0))
+        if sch is None or not name:
+            return
+        if name == "Fertig":
+            for b in (self.progress, self.lauf_balken, self.lauf_schritt_balken):
+                b.anhalten(voll=True)
+            self.lbl_lauf_prozent.configure(text="100 %")
+            self.lbl_status.configure(text="Fertig")
+            self.lbl_lauf_warten.configure(text="")
+            return
+        gesamt = sch.gesamt()
+        prozent = f"{100 * gesamt:.0f} %"
+        self.progress.setzen(gesamt, 1)
+        self.lauf_balken.setzen(gesamt, 1)
+        self.lbl_lauf_prozent.configure(text=prozent)
+        warte = sch.wartet()
+        ki = name in ("KI-Bewertung", "Endvergleich")
+        if ki and warte >= 3:
+            hinweis = f"warte auf KI-Antwort … {warte:.0f} s"
+        elif not total and warte >= 3:
+            hinweis = f"lädt … {warte:.0f} s"
+        else:
+            hinweis = ""
+        # Schritt-Balken: echter Stand, während des Wartens auf die KI als laufende Animation
+        if total and not (ki and warte >= 3):
+            self.lauf_schritt_balken.setzen(done, total)
+        else:
+            self.lauf_schritt_balken.unbestimmt()
+        schritt = f"{name}: {done} von {total}" if total else f"{name} …"
+        self.lbl_lauf_schritt.configure(text=schritt)
+        self.lbl_lauf_warten.configure(text=hinweis)
+        self.lbl_status.configure(text=f"Gesamt {prozent}  ·  {schritt}" + (f"  ·  {hinweis}" if hinweis else ""))
 
     def _row_values(self, li):
         b = self.bew.get(li.id)

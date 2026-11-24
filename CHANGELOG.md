@@ -4,6 +4,11 @@ Die Versionsnummer lautet `<VERSION>.<N>`: `VERSION` steht in der gleichnamigen 
 **N** zählt die Commits seit der letzten Änderung dieser Datei und steigt mit jedem Push automatisch.
 Die App zeigt diesen Verlauf im Über-Fenster (**?** rechts oben) unter „Neuigkeiten“.
 
+## 1.2.6 – 2026-11-24
+- Neu: Gesamtfortschritt in Prozent über alle Phasen (Suche, Beschreibungen, KI-Bewertung, Endvergleich) – oben rechts und groß in der Lauf-Ansicht
+- Der Gesamtfortschritt rückt auch während einer laufenden KI-Anfrage weiter und ist dabei animiert, damit es nicht nach Stillstand aussieht
+- Darunter der aktuelle Schritt (z. B. „KI-Bewertung: 30 von 120“) mit Hinweis „warte auf KI-Antwort … 14 s“
+
 ## 1.2.5 – 2026-11-24
 - Behoben: Die Laufzeit zählt während der Suche wieder sekündlich mit (oben rechts und in der Lauf-Ansicht); nach dem Ende bleibt die Gesamtdauer stehen, ab einer Stunde mit Stundenangabe
 
