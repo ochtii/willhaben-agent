@@ -8,6 +8,8 @@ import webbrowser
 from pathlib import Path
 from tkinter import ttk
 
+import plattform
+import settings
 import updater
 
 ENTWICKLER = "ochtii"
@@ -154,7 +156,7 @@ class AboutDialog(tk.Toplevel):
 
     def _karte(self, parent, symbol, titel, text, farbe):
         k = tk.Frame(parent, bg=HELL, padx=14, pady=12, highlightthickness=1, highlightbackground=_rand())
-        tk.Label(k, text=symbol, bg=HELL, fg=farbe, font=("DejaVu Sans", 22, "bold")).pack(anchor="w")
+        tk.Label(k, text=symbol, bg=HELL, fg=farbe, font=(plattform.SYMBOL, 22, "bold")).pack(anchor="w")
         tk.Label(k, text=titel, bg=HELL, fg=DUNKEL, font=("TkDefaultFont", 11, "bold")).pack(anchor="w", pady=(4, 2))
         tk.Label(k, text=text, bg=HELL, fg=GRAU, font=("TkDefaultFont", 9), justify="left", wraplength=200).pack(
             anchor="w")
@@ -194,6 +196,7 @@ class AboutDialog(tk.Toplevel):
             ("Berichte", "Markdown-Bericht + JSON aller Anzeigen und Bewertungen"),
             ("Updates", "prüft GitHub beim Start, Update mit einem Klick, räumt selbst auf"),
             ("Modernes Design", "helles oder dunkles Erscheinungsbild (Einstellungen → Design)"),
+            ("Windows & Linux", "eigene Installer, Startmenü, Updates und Deinstallation"),
         ]
         grid = tk.Frame(f, bg=WEISS)
         grid.pack(fill="both", expand=True)
@@ -327,10 +330,10 @@ class AboutDialog(tk.Toplevel):
             tk.Label(zelle, text=txt, bg=WEISS, fg=GRAU, font=("TkDefaultFont", 9)).pack(anchor="w")
 
         self._h(f, "Gut zu wissen", top=14)
-        for txt in ("Deine API-Keys bleiben auf deinem PC (~/.config/willhaben-agent, nur für dich lesbar).",
+        for txt in (f"Deine API-Keys bleiben auf deinem PC ({settings.CONFIG_DIR}, nur für dich lesbar).",
                     "An Google gehen nur öffentliche Anzeigentexte – keine Telefonnummern oder Adressen.",
                     "Nur für den privaten Gebrauch. Bitte die Nutzungsbedingungen von willhaben beachten.",
-                    "Gebaut mit Python, Tkinter und Google Gemini."):
+                    "Läuft unter Windows 10/11 und Linux. Gebaut mit Python, Tkinter und Google Gemini."):
             zeile = tk.Frame(f, bg=WEISS)
             zeile.pack(anchor="w", pady=1)
             tk.Label(zeile, text="●", bg=WEISS, fg=GRUEN, font=("TkDefaultFont", 8)).pack(side="left")

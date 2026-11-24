@@ -10,6 +10,7 @@ from tkinter import ttk, messagebox
 import theme
 from theme import P
 
+import plattform
 import updater
 
 
@@ -44,7 +45,7 @@ class UpdateDialog(tk.Toplevel):
         if info.remote:
             zeilen.append(f"Auf GitHub:  v{info.version_remote}   ({info.remote.kurz}, "
                           f"{info.remote.datum[:10]})")
-        ttk.Label(f, text="\n".join(zeilen), font=("DejaVu Sans Mono", 10)).pack(anchor="w", pady=(8, 4))
+        ttk.Label(f, text="\n".join(zeilen), font=(plattform.MONO, 10)).pack(anchor="w", pady=(8, 4))
         if info.fehler:
             ttk.Label(f, text=info.fehler, wraplength=480, justify="left").pack(anchor="w", pady=(4, 0))
 

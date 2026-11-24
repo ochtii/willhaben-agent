@@ -27,6 +27,8 @@ from pathlib import Path
 
 import requests
 
+import plattform
+
 REPO = "ochtii/willhaben-agent"
 BRANCH = "main"
 API = f"https://api.github.com/repos/{REPO}"
@@ -35,7 +37,11 @@ APP_DIR = Path(__file__).resolve().parent
 STATUS_DATEI = ".installed_version.json"      # nicht im Repo (siehe .gitignore)
 MANIFEST = "laufzeit-dateien.txt"             # welche Dateien eine Installation braucht
 # Im Installationsordner nie anfassen (Laufzeit-Umgebung, Startskripte, Update-Status)
-GESCHUETZT = {".venv", ".git", STATUS_DATEI, "willhaben-agent", "willhaben-agent-cli", "__pycache__"}
+PAKETE_AUSSTEHEND = ".pakete_ausstehend"     # Windows: Pakete beim nächsten Start aktualisieren
+GESCHUETZT = {".venv", ".git", STATUS_DATEI, PAKETE_AUSSTEHEND, "__pycache__",
+              "willhaben-agent", "willhaben-agent-cli",                       # Linux-Startskripte
+              "willhaben-agent.cmd", "willhaben-agent-cli.cmd",               # Windows-Startskripte
+              "deinstallieren.cmd", "deinstallieren.ps1"}                     # Windows-Deinstallation
 
 
 class UpdateFehler(Exception):
@@ -87,7 +93,8 @@ def basis_version(app_dir: Path = APP_DIR) -> str:
 
 
 def _git(app_dir: Path, *args, timeout=60) -> str:
-    r = subprocess.run(["git", "-C", str(app_dir), *args], capture_output=True, text=True, timeout=timeout)
+    r = subprocess.run(["git", "-C", str(app_dir), *args], capture_output=True, text=True, timeout=timeout,
+                       **plattform.OHNE_FENSTER)
     if r.returncode != 0:
         raise UpdateFehler((r.stderr or r.stdout).strip() or f"git {' '.join(args)} fehlgeschlagen")
     return r.stdout.strip()
@@ -147,6 +154,8 @@ def aufraeumen(app_dir: Path = APP_DIR, erlaubt: set[str] | None = None, log=pri
 
 def alte_menueeintraege_entfernen(log=print) -> list[str]:
     """Entfernt Startmenü-Einträge früherer Versionen (z.B. den zweiten Eintrag „… (mit Terminal)“)."""
+    if plattform.IST_WINDOWS:
+        return []
     apps = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "applications"
     entfernt = []
     for name in ("willhaben-agent-terminal.desktop",):
@@ -309,8 +318,13 @@ def _pakete(app_dir: Path, log):
     req = app_dir / "requirements.txt"
     if not req.exists():
         return
+    if plattform.IST_WINDOWS:
+        # Windows sperrt Dateien geladener Pakete -> erst beim nächsten Start (vor dem Laden) aktualisieren
+        (app_dir / PAKETE_AUSSTEHEND).write_text("1")
+        log("Python-Pakete werden beim nächsten Start aktualisiert")
+        return
     log("Python-Pakete werden aktualisiert …")
-    r = subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-r", str(req)],
+    r = subprocess.run([plattform.python_konsole(), "-m", "pip", "install", "-q", "-r", str(req)],
                        capture_output=True, text=True, timeout=600)
     if r.returncode != 0:
         log("⚠ Pakete konnten nicht aktualisiert werden: " + (r.stderr or r.stdout).strip()[-300:])
@@ -379,7 +393,20 @@ def installieren(info: UpdateInfo, app_dir: Path = APP_DIR, log=print) -> str:
 
 def neu_starten():
     """Startet das laufende Programm mit denselben Argumenten neu."""
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+    plattform.neu_starten()
+
+
+def ausstehende_pakete_installieren(app_dir: Path = APP_DIR) -> bool:
+    """Nach einem Update unter Windows: requirements.txt installieren, bevor Pakete geladen werden."""
+    marke = app_dir / PAKETE_AUSSTEHEND
+    if not marke.exists():
+        return False
+    req = app_dir / "requirements.txt"
+    r = subprocess.run([plattform.python_konsole(), "-m", "pip", "install", "-q", "-r", str(req)],
+                       capture_output=True, text=True, timeout=900, **plattform.OHNE_FENSTER)
+    if r.returncode == 0:
+        marke.unlink(missing_ok=True)
+    return r.returncode == 0
 
 
 def version_text(app_dir: Path = APP_DIR) -> str:
@@ -388,7 +415,7 @@ def version_text(app_dir: Path = APP_DIR) -> str:
 
 
 if __name__ == "__main__":
-    # Hilfsbefehle für install.sh
+    # Hilfsbefehle für install.sh / install.ps1
     import argparse
     ap = argparse.ArgumentParser(description="Hilfsbefehle für den Installer")
     ap.add_argument("--aufraeumen", action="store_true", help="nicht benötigte Dateien im Installationsordner entfernen")

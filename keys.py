@@ -1,7 +1,7 @@
 """API-Key- und Limit-Manager.
 
 KeyStore  – speichert beliebig viele Google-Gemini-Keys samt Limits und Verbrauch
-            (~/.config/willhaben-agent/keys.json, nur für den eigenen Benutzer lesbar).
+            (keys.json im Konfigurationsordner, nur für den eigenen Benutzer lesbar).
 Verteiler – wählt für jede KI-Anfrage Key und Modell: Keys gleichmäßig oder nacheinander,
             respektiert Minuten-/Tageslimits, wechselt bei Limit/Fehler automatisch zum nächsten
             Key bzw. vom gewählten Modell auf das Ausweichmodell.
@@ -96,7 +96,10 @@ class KeyStore:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.path.with_suffix(".tmp")
             tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1))
-            os.chmod(tmp, 0o600)
+            try:
+                os.chmod(tmp, 0o600)
+            except OSError:
+                pass
             tmp.replace(self.path)
 
     def _legacy_import(self):

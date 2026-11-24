@@ -6,6 +6,7 @@ laufzeit-dateien.txt
 VERSION
 requirements.txt
 icon.png
+icon.ico
 about_dialog.py
 agent.py
 bezirk_dialog.py
@@ -15,6 +16,7 @@ keys_dialog.py
 pipeline.py
 providers.py
 rating.py
+plattform.py
 settings.py
 theme.py
 update_dialog.py

@@ -26,6 +26,14 @@ except ModuleNotFoundError:
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import plattform  # noqa: E402
+plattform.ausgabe_absichern()
+try:                      # nach einem Update unter Windows: Python-Pakete vor dem Laden aktualisieren
+    import updater as _upd  # noqa: E402
+    _upd.ausstehende_pakete_installieren()
+except Exception:
+    pass
+
 import settings  # noqa: E402
 import theme  # noqa: E402
 from theme import P  # noqa: E402
@@ -59,10 +67,7 @@ def tk_safe(text: str) -> str:
 
 
 def open_path(p: Path | str) -> None:
-    try:
-        subprocess.Popen(["xdg-open", str(p)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception:
-        webbrowser.open(Path(p).as_uri() if not str(p).startswith("http") else str(p))
+    plattform.oeffnen(p)
 
 
 class GuiEreignisse(Ereignisse):
@@ -313,7 +318,7 @@ class App:
         # Tab 1: Live-Protokoll (Terminal-Look)
         tab = ttk.Frame(self.nb)
         self.nb.add(tab, text="  Live-Protokoll  ")
-        self.txt_log = tk.Text(tab, wrap="word", font=("DejaVu Sans Mono", 10), padx=12, pady=10, state="disabled")
+        self.txt_log = tk.Text(tab, wrap="word", font=(plattform.MONO, 10), padx=12, pady=10, state="disabled")
         theme.text_farben(self.txt_log, terminal=True)
         sb = ttk.Scrollbar(tab, command=self.txt_log.yview)
         self.txt_log.configure(yscrollcommand=sb.set)
@@ -367,7 +372,7 @@ class App:
         t.tag_configure("h1", font=("TkDefaultFont", 16, "bold"), spacing3=6)
         t.tag_configure("h2", font=("TkDefaultFont", 13, "bold"), spacing1=12, spacing3=4)
         t.tag_configure("rank", font=("TkDefaultFont", 12, "bold"), foreground=P["accent"], spacing1=16)
-        t.tag_configure("specs", foreground=P["muted"], font=("DejaVu Sans Mono", 10))
+        t.tag_configure("specs", foreground=P["muted"], font=(plattform.MONO, 10))
         t.tag_configure("pro", foreground=P["ok"])
         t.tag_configure("con", foreground=P["warn"])
         t.tag_configure("fazit", font=("TkDefaultFont", 10, "italic"))
@@ -544,15 +549,14 @@ class App:
         """Entfernt nicht benötigte Dateien (z.B. nach einem Update durch eine ältere Version) und weist
         darauf hin, wenn die App noch direkt aus einem Quellordner/Git-Klon läuft."""
         try:
+            plattform.windows_version_eintragen(self.version)
             updater.aufraeumen(log=lambda m: self._log(m, "info"))
             updater.alte_menueeintraege_entfernen(log=lambda m: self._log(m, "info"))
         except Exception as e:
             self._log(f"Aufräumen nicht möglich: {e}", "warn")
         if (updater.APP_DIR / ".git").exists() and (updater.APP_DIR / "install.sh").exists() \
                 and not self.cfg.get("hinweis_installation"):
-            self._log("Tipp: Diese App läuft direkt aus dem Quellordner. Einmal ./install.sh ausführen – dann "
-                      "liegen nur noch die benötigten Dateien unter ~/.local/share/willhaben-agent und der "
-                      "Quellordner kann weg.", "warn")
+            self._log(plattform.installations_hinweis(), "warn")
             self.cfg["hinweis_installation"] = True
 
     # ------------------------------------------------------------------ Updates

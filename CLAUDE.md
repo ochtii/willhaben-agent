@@ -21,10 +21,18 @@
   diese Dateien und löschen im Installationsordner alles andere.
 - Neue Python-Pakete in `requirements.txt` eintragen (der Updater installiert sie nach).
 
+## Windows & Linux
+- Plattformunterschiede gehören in `plattform.py` (Ordner, Schriften, Dateien öffnen, Neustart).
+- `install.ps1` und `install-windows.cmd`: **nur ASCII-Zeichen, CRLF-Zeilenenden**, PowerShell-5.1-kompatibel
+  (kein `&&`, `??`, Ternär). Externe Programme mit Umleitung über `Nativ { … }` aufrufen.
+- Vom Windows-Installer erzeugte Dateien (Startskripte, `deinstallieren.*`) müssen in `updater.GESCHUETZT` stehen,
+  sonst löscht das automatische Aufräumen sie.
+- Beide Installer (`install.sh`, `install.ps1`) bei Änderungen am Installationsablauf gemeinsam anpassen.
+
 ## Design
 - Farben nie fest eintragen, sondern aus `theme.P` (Hell/Dunkel-Palette) nehmen.
 - Oberfläche: Tkinter + sv-ttk; keine Farb-Emojis in Tk-Widgets (siehe `tk_safe` in `gui.py`).
 
 ## Prüfen vor dem Push
-- `python -c "import gui, agent, keys, keys_dialog, pipeline, rating, providers, updater, about_dialog, bezirk_dialog, theme"`
+- `python -c "import gui, agent, keys, keys_dialog, pipeline, rating, providers, updater, about_dialog, bezirk_dialog, theme, plattform"`
 - GUI in Hell und Dunkel unter `xvfb-run` ansehen, wenn sich die Oberfläche ändert.

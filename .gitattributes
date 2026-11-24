@@ -1,0 +1,5 @@
+# Windows-Skripte unverändert (CRLF) ablegen
+*.cmd -text
+*.ps1 -text
+*.ico binary
+*.png binary

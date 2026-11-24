@@ -1,4 +1,5 @@
-"""Speichert die letzten Eingaben und (optional) den API-Key in ~/.config/willhaben-agent/config.json."""
+"""Speichert die letzten Eingaben in config.json im Konfigurationsordner
+(Linux: ~/.config/willhaben-agent, Windows: %APPDATA%\\willhaben-agent)."""
 
 from __future__ import annotations
 
@@ -6,7 +7,9 @@ import json
 import os
 from pathlib import Path
 
-CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "willhaben-agent"
+from plattform import konfig_ordner
+
+CONFIG_DIR = konfig_ordner()
 CONFIG_FILE = CONFIG_DIR / "config.json"
 DEFAULT_OUTPUT = str(Path.home() / "willhaben-ergebnisse")
 
@@ -22,5 +25,8 @@ def save(data: dict) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     tmp = CONFIG_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1))
-    os.chmod(tmp, 0o600)          # Key nur für den eigenen Benutzer lesbar
+    try:
+        os.chmod(tmp, 0o600)      # nur für den eigenen Benutzer lesbar (unter Windows ohne Wirkung)
+    except OSError:
+        pass
     tmp.replace(CONFIG_FILE)

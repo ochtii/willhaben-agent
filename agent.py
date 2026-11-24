@@ -5,7 +5,7 @@ Beispiel:
   python agent.py --kategorie laptops --von 200 --bis 600 --bundesland wien \\
       --beschreibung "Laptop für Uni, leicht, guter Akku, 16GB RAM" --top 10
 
-Google-Gemini-Keys werden aus den Einstellungen der GUI (~/.config/willhaben-agent/keys.json) und aus
+Google-Gemini-Keys werden aus den Einstellungen der GUI (keys.json im Konfigurationsordner) und aus
 den Umgebungsvariablen GEMINI_API_KEY (mehrere kommagetrennt in GEMINI_API_KEYS) gelesen.
   python agent.py --keys                       # Keys, Modelle, Limits und Verbrauch anzeigen
   python agent.py --key-hinzufuegen "Privat" AIza...
@@ -16,7 +16,16 @@ from __future__ import annotations
 import argparse
 import sys
 
-import settings
+import plattform
+
+plattform.ausgabe_absichern()
+try:                      # nach einem Update unter Windows: Python-Pakete vor dem Laden aktualisieren
+    import updater as _upd
+    _upd.ausstehende_pakete_installieren()
+except Exception:
+    pass
+
+import settings  # noqa: E402
 from keys import KeyStore, KIFehler, maskiert
 from pipeline import Auftrag, run
 from willhaben import CATEGORIES, Abgebrochen

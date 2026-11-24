@@ -4,6 +4,12 @@ Die Versionsnummer lautet `<VERSION>.<N>`: `VERSION` steht in der gleichnamigen 
 **N** zählt die Commits seit der letzten Änderung dieser Datei und steigt mit jedem Push automatisch.
 Die App zeigt diesen Verlauf unter Hilfe → Über → „Neuigkeiten“.
 
+## 1.1.1 – 2026-11-24
+- Neu: Windows-Installer – Doppelklick auf „install-windows.cmd“ installiert die App unter Windows 10/11 (Startmenü, Desktop, „Apps & Features“ mit Deinstallation)
+- Fehlt Python, bietet der Installer die automatische Installation per winget an
+- Updates unter Windows: Python-Pakete werden beim nächsten Start aktualisiert (Windows sperrt geladene Dateien)
+- Einstellungen und Keys liegen unter Windows in %APPDATA%\willhaben-agent
+
 ## 1.1.0 – 2026-11-24
 - Komplett modernisiertes Design (Sun-Valley-Theme): Kopfleiste mit Farbverlauf und Schnellzugriffen, Fortschritts-Stepper, Kacheln für die Zähler, Akzent-Knopf zum Starten
 - Neuer Dunkelmodus: Einstellungen → Design → Hell / Dunkel – alle Fenster passen sich an

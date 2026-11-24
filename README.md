@@ -7,6 +7,24 @@ man live sieht, was der Agent gerade macht.
 
 ## Installation (einmalig)
 
+Läuft unter **Windows 10/11** und **Linux**.
+
+### Windows
+
+1. Auf GitHub **Code → Download ZIP** wählen und das ZIP entpacken (oder `git clone https://github.com/ochtii/willhaben-agent.git`).
+2. Im entpackten Ordner **`install-windows.cmd`** doppelklicken.
+
+Der Windows-Installer
+- sucht Python 3.10 oder neuer (mit Tkinter). Fehlt es, bietet er die Installation von Python 3.12 per `winget` an, sonst verweist er auf python.org,
+- kopiert **nur die benötigten Dateien** nach `%LOCALAPPDATA%\willhaben-agent` und legt dort eine eigene Python-Umgebung an,
+- erstellt eine Verknüpfung im **Startmenü** und auf dem **Desktop**,
+- trägt die App unter **Einstellungen → Apps** ein (Deinstallation dort oder per `deinstallieren.cmd` im Programmordner; deine Ergebnisse bleiben erhalten, Einstellungen und Keys auf Wunsch auch),
+- bietet am Ende an, den heruntergeladenen Ordner zu löschen.
+
+Einstellungen und Keys liegen unter Windows in `%APPDATA%\willhaben-agent`.
+
+### Linux
+
 ```bash
 git clone https://github.com/ochtii/willhaben-agent.git
 cd willhaben-agent && ./install.sh
@@ -112,6 +130,10 @@ Für jede andere Kategorie oder spezielle Filter: Suche im Browser auf willhaben
 | `about_dialog.py` | Fenster „Über“: Funktionen, Ablauf, Versionsverlauf, Entwickler & Links |
 | `bezirk_dialog.py` | Auswahlfenster für die Bezirke eines Bundeslands |
 | `theme.py` | Design: Sun-Valley-Theme, Hell-/Dunkel-Palette, Kopfleiste, Stepper, Kacheln |
+| `plattform.py` | Unterschiede Windows/Linux (Ordner, Schriften, Dateien öffnen, Neustart) |
+| `install-windows.cmd`, `install.ps1` | Installer für Windows |
+| `install.sh` | Installer für Linux |
+| `icon.ico` | Programmsymbol für Windows-Verknüpfungen |
 | `CHANGELOG.md` | Versionsverlauf (wird im Über-Fenster angezeigt) |
 | `CLAUDE.md` | Entwicklungsregeln (README, Über-Fenster und Changelog bei jedem Push aktualisieren) |
 | `VERSION` | Haupt-/Nebenversion (die letzte Stelle zählt automatisch die Commits) |
