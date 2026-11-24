@@ -1,7 +1,8 @@
 """Update-Funktion: prüft auf GitHub, ob eine neuere Version vorliegt, und installiert sie.
 
-Versionsnummer: <VERSION-Datei>.<Anzahl Commits auf main>, z.B. 1.0.12.
-Die letzte Stelle erhöht sich dadurch bei jedem Commit/Push automatisch.
+Versionsnummer: <VERSION-Datei>.<Commits seit der letzten Änderung der VERSION-Datei>, z.B. 1.1.3.
+Ändert sich VERSION (z.B. auf 1.2), beginnt die letzte Stelle wieder bei 0; danach erhöht sie sich bei
+jedem Commit/Push automatisch.
 
 Installationsarten:
   * Git-Klon      -> `git pull --ff-only` (lokale Änderungen werden NICHT überschrieben)
@@ -44,12 +45,14 @@ class UpdateFehler(Exception):
 @dataclass
 class Stand:
     sha: str = ""
-    nummer: int | None = None          # Anzahl Commits bis zu diesem Stand
+    nummer: int | None = None          # Commits seit der letzten Änderung der VERSION-Datei
     datum: str = ""
     nachricht: str = ""
+    basis: str = ""                    # Inhalt der VERSION-Datei, z.B. "1.1"
 
-    def version(self, basis: str) -> str:
-        return f"{basis}.{self.nummer}" if self.nummer is not None else f"{basis}.?"
+    def version(self, basis: str | None = None) -> str:
+        b = self.basis or basis or "1.0"
+        return f"{b}.{self.nummer}" if self.nummer is not None else f"{b}.?"
 
     @property
     def kurz(self) -> str:
@@ -199,17 +202,19 @@ def lokaler_stand(app_dir: Path = APP_DIR) -> Stand:
             sha = _git(app_dir, "rev-parse", "HEAD", timeout=10)
             nummer = None
             if _git(app_dir, "rev-parse", "--is-shallow-repository", timeout=10) == "false":
-                nummer = int(_git(app_dir, "rev-list", "--count", "HEAD", timeout=10))
+                v_commit = _git(app_dir, "log", "-1", "--format=%H", "--", "VERSION", timeout=10)
+                nummer = int(_git(app_dir, "rev-list", "--count", f"{v_commit}..HEAD" if v_commit else "HEAD",
+                                  timeout=10))
             else:
                 st = _status_lesen(app_dir)
                 nummer = st.get("nummer") if st.get("sha") == sha else None
             msg = _git(app_dir, "log", "-1", "--format=%s", timeout=10)
             datum = _git(app_dir, "log", "-1", "--format=%cI", timeout=10)
-            return Stand(sha, nummer, datum, msg)
+            return Stand(sha, nummer, datum, msg, basis_version(app_dir))
         except (UpdateFehler, ValueError, OSError, subprocess.SubprocessError):
             pass
     st = _status_lesen(app_dir)
-    return Stand(st.get("sha", ""), st.get("nummer"), st.get("datum", ""))
+    return Stand(st.get("sha", ""), st.get("nummer"), st.get("datum", ""), "", basis_version(app_dir))
 
 
 def remote_stand(timeout: float = 8) -> Stand:
@@ -217,27 +222,39 @@ def remote_stand(timeout: float = 8) -> Stand:
     d = r.json()
     sha = d["sha"]
     c = d.get("commit", {})
-    # Anzahl Commits: Seitenzahl der letzten Seite bei 1 Commit pro Seite
-    r2 = _get(f"{API}/commits", timeout, params={"sha": BRANCH, "per_page": 1})
-    m = re.search(r'[?&]page=(\d+)>; rel="last"', r2.headers.get("Link", ""))
-    nummer = int(m.group(1)) if m else len(r2.json())
-    return Stand(sha, nummer, c.get("committer", {}).get("date", ""), (c.get("message") or "").split("\n")[0])
+    basis = _remote_text("VERSION", timeout).strip() or "1.0"
+    # letzte Stelle = Commits seit der letzten Änderung der VERSION-Datei
+    rv = _get(f"{API}/commits", timeout, params={"sha": BRANCH, "path": "VERSION", "per_page": 1}).json()
+    if rv:
+        v_sha = rv[0]["sha"]
+        nummer = 0 if v_sha == sha else _get(f"{API}/compare/{v_sha}...{sha}", timeout).json().get("ahead_by", 0)
+    else:
+        r2 = _get(f"{API}/commits", timeout, params={"sha": BRANCH, "per_page": 1})
+        m = re.search(r'[?&]page=(\d+)>; rel="last"', r2.headers.get("Link", ""))
+        nummer = int(m.group(1)) if m else len(r2.json())
+    return Stand(sha, nummer, c.get("committer", {}).get("date", ""), (c.get("message") or "").split("\n")[0], basis)
+
+
+def _remote_text(pfad: str, timeout: float = 8) -> str:
+    """Inhalt einer Datei im Repo (Stand main) über die GitHub-API."""
+    import base64
+    d = _get(f"{API}/contents/{pfad}", timeout, params={"ref": BRANCH}).json()
+    return base64.b64decode(d.get("content", "")).decode("utf-8", "replace")
 
 
 def verlauf(anzahl: int = 12, timeout: float = 8) -> list[dict]:
-    """Die letzten Versionen auf GitHub: [{version, sha, datum, nachricht}], neueste zuerst."""
-    basis = basis_version()
-    r = _get(f"{API}/commits", timeout, params={"sha": BRANCH, "per_page": 1})
-    m = re.search(r'[?&]page=(\d+)>; rel="last"', r.headers.get("Link", ""))
-    gesamt = int(m.group(1)) if m else len(r.json())
-    r = _get(f"{API}/commits", timeout, params={"sha": BRANCH, "per_page": anzahl})
-    out = []
-    for i, c in enumerate(r.json()):
-        info = c.get("commit", {})
-        out.append({"version": f"{basis}.{gesamt - i}", "sha": c.get("sha", "")[:7],
-                    "datum": (info.get("committer", {}).get("date") or "")[:10],
-                    "nachricht": (info.get("message") or "").split("\n")[0]})
-    return out
+    """Versionsverlauf aus CHANGELOG.md auf GitHub: [{version, datum, punkte: [...]}], neueste zuerst."""
+    eintraege, aktuell = [], None
+    for zeile in _remote_text("CHANGELOG.md", timeout).splitlines():
+        m = re.match(r"^##\s+v?(\d+\.\d+\.\d+)\s*(?:[–—-]\s*(.+))?$", zeile.strip())
+        if m:
+            aktuell = {"version": m.group(1), "datum": (m.group(2) or "").strip(), "punkte": []}
+            eintraege.append(aktuell)
+        elif aktuell and zeile.strip().startswith(("- ", "* ")):
+            aktuell["punkte"].append(zeile.strip()[2:].strip())
+        elif aktuell and aktuell["punkte"] and zeile.startswith("  ") and zeile.strip():
+            aktuell["punkte"][-1] += " " + zeile.strip()
+    return eintraege[:anzahl]
 
 
 def pruefen(app_dir: Path = APP_DIR, timeout: float = 8) -> UpdateInfo:
@@ -274,8 +291,8 @@ def pruefen(app_dir: Path = APP_DIR, timeout: float = 8) -> UpdateInfo:
             return info
         cmp = r.json()
         behind = cmp.get("ahead_by", 0)              # remote ist so viele Commits voraus
-        if lokal.nummer is None:
-            lokal.nummer = info.remote.nummer - behind if cmp.get("behind_by", 0) == 0 else None
+        if lokal.nummer is None and lokal.basis == info.remote.basis and cmp.get("behind_by", 0) == 0:
+            lokal.nummer = info.remote.nummer - behind if info.remote.nummer >= behind else None
         info.neuer = behind > 0
         info.aenderungen = [((c.get("commit") or {}).get("message") or "").split("\n")[0]
                             for c in reversed(cmp.get("commits", []))]

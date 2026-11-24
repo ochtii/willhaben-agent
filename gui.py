@@ -27,6 +27,8 @@ except ModuleNotFoundError:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import settings  # noqa: E402
+import theme  # noqa: E402
+from theme import P  # noqa: E402
 from pipeline import Auftrag, Ereignisse, run, region_text  # noqa: E402
 from bezirk_dialog import BezirkDialog, kurzname  # noqa: E402
 from keys import KeyStore, KIFehler, maskiert  # noqa: E402
@@ -43,9 +45,6 @@ BUNDESLAENDER = [("Wien", "wien"), ("Niederösterreich", "niederoesterreich"), (
                  ("Tirol", "tirol"), ("Vorarlberg", "vorarlberg"), ("Burgenland", "burgenland")]
 PHASES = ["Suche", "Details", "KI-Bewertung", "Endvergleich", "Fertig"]
 
-# Farben (Terminal-Look fürs Protokoll)
-TERM_BG, TERM_FG = "#1e1f24", "#d6d6d6"
-ACCENT = "#0b6bcb"
 
 
 _EMOJI_MAP = {"✅": "✔", "✔️": "✔", "⚠️": "⚠", "❌": "✖", "⏳": "…", "↻": "↻", "🔎": "»", "🤖": "»", "🏆": "»",
@@ -117,8 +116,8 @@ class App:
         self.var_update_start = tk.BooleanVar(value=self.cfg.get("update_beim_start", True))
         self.var_update_start.trace_add("write", lambda *a: self._update_option_speichern())
         root.geometry(self.cfg.get("geometry", "1280x820"))
-        root.minsize(1000, 640)
-        self._style()
+        root.minsize(1060, 680)
+        theme.anwenden(root, self.cfg.get("design", "hell"))
         self._build()
         self._load_form()
         root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -133,26 +132,6 @@ class App:
             self._log("Hinweis: Noch kein Google-Gemini-Key eingetragen → „API-Keys & Limits …“ (Strg+K).", "warn")
 
     # ------------------------------------------------------------------ Layout
-    def _style(self):
-        st = ttk.Style()
-        for theme in ("clam", "alt", "default"):
-            if theme in st.theme_names():
-                st.theme_use(theme)
-                break
-        base = ("TkDefaultFont", 10)
-        st.configure("Title.TLabel", font=("TkDefaultFont", 14, "bold"))
-        st.configure("Sub.TLabel", foreground="#666")
-        st.configure("Section.TLabelframe.Label", font=("TkDefaultFont", 10, "bold"))
-        st.configure("Start.TButton", font=("TkDefaultFont", 11, "bold"), padding=8)
-        st.configure("Link.TLabel", foreground=ACCENT, font=base + ("underline",))
-        st.configure("Treeview", rowheight=24)
-        st.configure("Horizontal.TProgressbar", background=ACCENT, troughcolor="#e4e4e4",
-                     bordercolor="#c8c8c8", lightcolor=ACCENT, darkcolor=ACCENT, thickness=14)
-        st.configure("Phase.TLabel", padding=(8, 3), relief="groove")
-        st.configure("PhaseActive.TLabel", padding=(8, 3), relief="groove", background="#cfe3fb",
-                     font=("TkDefaultFont", 10, "bold"))
-        st.configure("PhaseDone.TLabel", padding=(8, 3), relief="groove", background="#d7f0d9")
-
     def _build(self):
         menubar = tk.Menu(self.root)
         m = tk.Menu(menubar, tearoff=0)
@@ -161,6 +140,12 @@ class App:
         m.add_separator()
         m.add_command(label="Nach Updates suchen …", command=lambda: self.update_pruefen(manuell=True))
         m.add_checkbutton(label="Beim Start nach Updates suchen", variable=self.var_update_start)
+        m.add_separator()
+        self.var_design = tk.StringVar(value=self.cfg.get("design", "hell"))
+        dm = tk.Menu(m, tearoff=0)
+        dm.add_radiobutton(label="Hell", value="hell", variable=self.var_design, command=self._design_wechseln)
+        dm.add_radiobutton(label="Dunkel", value="dunkel", variable=self.var_design, command=self._design_wechseln)
+        m.add_cascade(label="Design", menu=dm)
         m.add_separator()
         m.add_command(label="Beenden", command=self.on_close)
         menubar.add_cascade(label="Einstellungen", menu=m)
@@ -173,20 +158,30 @@ class App:
         menubar.add_cascade(label="Hilfe", menu=h)
         self.root.configure(menu=menubar)
         self.root.bind_all("<Control-k>", lambda e: self.open_keys())
+        try:
+            img = tk.PhotoImage(file=str(Path(__file__).resolve().parent / "icon.png"))
+            self._kopf_icon = img.subsample(max(1, img.width() // 40))
+        except Exception:
+            self._kopf_icon = None
+        self.kopf = theme.Kopfleiste(self.root, APP_TITLE, "Durchsucht alle Anzeigen auf willhaben und bewertet sie mit KI",
+                                     self.version, self._kopf_icon,
+                                     [("API-Keys", self.open_keys), ("Updates", lambda: self.update_pruefen(manuell=True)),
+                                      ("Über", self._ueber)])
+        self.kopf.pack(fill="x")
         main = ttk.PanedWindow(self.root, orient="horizontal")
         main.pack(fill="both", expand=True)
 
         # ---------------- linke Spalte: Formular (scrollbar)
-        left_outer = ttk.Frame(main, padding=(10, 10, 4, 10))
+        left_outer = ttk.Frame(main, padding=(14, 12, 6, 12))
         main.add(left_outer, weight=0)
         # Start/Stopp immer sichtbar unten
-        bf = ttk.Frame(left_outer, padding=(0, 8, 0, 0))
+        bf = ttk.Frame(left_outer, padding=(0, 10, 0, 0))
         bf.pack(side="bottom", fill="x")
-        self.btn_start = ttk.Button(bf, text="▶  Start", style="Start.TButton", command=self.start)
-        self.btn_start.pack(side="left", fill="x", expand=True)
-        self.btn_stop = ttk.Button(bf, text="■  Stopp", style="Start.TButton", command=self.cancel, state="disabled")
+        self.btn_start = ttk.Button(bf, text="▶   Suche starten", style="Accent.TButton", command=self.start)
+        self.btn_start.pack(side="left", fill="x", expand=True, ipady=4)
+        self.btn_stop = ttk.Button(bf, text="■  Stopp", command=self.cancel, state="disabled")
         self.btn_stop.pack(side="left", padx=(6, 0))
-        canvas = tk.Canvas(left_outer, highlightthickness=0, width=370)
+        canvas = tk.Canvas(left_outer, highlightthickness=0, width=380, bg=P["bg"])
         sb = ttk.Scrollbar(left_outer, orient="vertical", command=canvas.yview)
         form = ttk.Frame(canvas, padding=(0, 0, 10, 0))
         form.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
@@ -200,12 +195,13 @@ class App:
         canvas.bind_all("<MouseWheel>", lambda e: self._wheel(canvas, e, -1 if e.delta > 0 else 1))
         self._form_canvas = canvas
 
-        ttk.Label(form, text=APP_TITLE, style="Title.TLabel").pack(anchor="w")
-        ttk.Label(form, text="Durchsucht alle Anzeigen & bewertet sie mit KI", style="Sub.TLabel").pack(anchor="w", pady=(0, 8))
+        ttk.Label(form, text="Neue Suche", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(form, text="Was, wie teuer, wo – den Rest erledigt der Agent.", style="Sub.TLabel").pack(
+            anchor="w", pady=(0, 8))
 
         # Was?
-        f = ttk.LabelFrame(form, text="Was suchst du?", style="Section.TLabelframe", padding=8)
-        f.pack(fill="x", pady=4)
+        f = ttk.LabelFrame(form, text="Was suchst du?", style="Section.TLabelframe", padding=10)
+        f.pack(fill="x", pady=5)
         ttk.Label(f, text="Suchbegriff (optional)").grid(row=0, column=0, sticky="w")
         self.var_suche = tk.StringVar()
         ttk.Entry(f, textvariable=self.var_suche, width=10).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 6))
@@ -214,16 +210,16 @@ class App:
         ttk.Combobox(f, textvariable=self.var_kat, values=list(CATEGORIES), width=10).grid(
             row=3, column=0, columnspan=2, sticky="ew", pady=(0, 6))
         ttk.Label(f, text="Kurze Beschreibung / Anforderungen").grid(row=4, column=0, sticky="w")
-        self.txt_beschr = tk.Text(f, height=4, width=20, wrap="word", font=("TkDefaultFont", 10),
-                                  relief="solid", borderwidth=1)
+        self.txt_beschr = tk.Text(f, height=4, width=20, wrap="word", font=("TkDefaultFont", 10), padx=6, pady=4)
+        theme.text_farben(self.txt_beschr)
         self.txt_beschr.grid(row=5, column=0, columnspan=2, sticky="ew")
         ttk.Label(f, text="z.B. „Für Uni & Office, leicht, guter Akku, mind. 16 GB RAM“",
-                  style="Sub.TLabel").grid(row=6, column=0, columnspan=2, sticky="w")
+                  style="Small.TLabel", wraplength=320, justify="left").grid(row=6, column=0, columnspan=2, sticky="w")
         f.columnconfigure(0, weight=1)
 
         # Preis
-        f = ttk.LabelFrame(form, text="Preisspanne (€)", style="Section.TLabelframe", padding=8)
-        f.pack(fill="x", pady=4)
+        f = ttk.LabelFrame(form, text="Preisspanne (€)", style="Section.TLabelframe", padding=10)
+        f.pack(fill="x", pady=5)
         self.var_von, self.var_bis = tk.StringVar(), tk.StringVar()
         ttk.Label(f, text="von").pack(side="left")
         ttk.Spinbox(f, from_=0, to=100000, increment=50, textvariable=self.var_von, width=8).pack(side="left", padx=4)
@@ -231,8 +227,8 @@ class App:
         ttk.Spinbox(f, from_=0, to=100000, increment=50, textvariable=self.var_bis, width=8).pack(side="left", padx=4)
 
         # Region
-        f = ttk.LabelFrame(form, text="Region", style="Section.TLabelframe", padding=8)
-        f.pack(fill="x", pady=4)
+        f = ttk.LabelFrame(form, text="Region", style="Section.TLabelframe", padding=10)
+        f.pack(fill="x", pady=5)
         ttk.Label(f, text="Bundesland (keins = ganz Österreich)").grid(row=0, column=0, columnspan=3, sticky="w")
         self.bl_vars = {}
         self.bezirk_auswahl: dict[str, list[tuple[str, str]]] = {}    # Bundesland -> [(Name, areaId)]
@@ -253,8 +249,8 @@ class App:
             row=9, column=0, columnspan=3, sticky="w")
 
         # Ergebnis-Optionen
-        f = ttk.LabelFrame(form, text="Auswertung", style="Section.TLabelframe", padding=8)
-        f.pack(fill="x", pady=4)
+        f = ttk.LabelFrame(form, text="Auswertung", style="Section.TLabelframe", padding=10)
+        f.pack(fill="x", pady=5)
         ttk.Label(f, text="Anzahl Top-Geräte").grid(row=0, column=0, sticky="w")
         self.var_top = tk.StringVar(value="10")
         ttk.Spinbox(f, from_=1, to=50, textvariable=self.var_top, width=6).grid(row=0, column=1, sticky="w", padx=6)
@@ -274,8 +270,8 @@ class App:
         ttk.Entry(f, textvariable=self.var_url, width=10).grid(row=4, column=0, columnspan=2, sticky="ew")
 
         # KI
-        f = ttk.LabelFrame(form, text="KI & API-Keys", style="Section.TLabelframe", padding=8)
-        f.pack(fill="x", pady=4)
+        f = ttk.LabelFrame(form, text="KI & API-Keys", style="Section.TLabelframe", padding=10)
+        f.pack(fill="x", pady=5)
         self.lbl_ki = ttk.Label(f, text="", justify="left", wraplength=320)
         self.lbl_ki.pack(anchor="w", fill="x")
         self.lbl_ki_live = ttk.Label(f, text="", style="Sub.TLabel", justify="left", wraplength=320)
@@ -283,35 +279,32 @@ class App:
         ttk.Button(f, text="API-Keys & Limits verwalten …", command=self.open_keys).pack(fill="x", pady=(8, 0))
 
         # ---------------- rechte Seite
-        right = ttk.Frame(main, padding=(4, 10, 10, 10))
+        right = ttk.Frame(main, padding=(8, 12, 14, 12))
         main.add(right, weight=1)
 
-        # Phasen-Leiste + Fortschritt
-        top = ttk.Frame(right)
-        top.pack(fill="x")
-        self.phase_labels = {}
-        for i, ph in enumerate(PHASES):
-            lab = ttk.Label(top, text=f"{i + 1}. {ph}", style="Phase.TLabel")
-            lab.pack(side="left", padx=(0, 4))
-            self.phase_labels[ph] = lab
-        self.lbl_time = ttk.Label(top, text="", style="Sub.TLabel")
-        self.lbl_time.pack(side="right")
+        # Phasen als Stepper + Fortschritt
+        self.stepper = theme.Stepper(right, PHASES)
+        self.stepper.pack(fill="x")
         self.progress = ttk.Progressbar(right, mode="determinate")
-        self.progress.pack(fill="x", pady=(6, 2))
-        self.lbl_status = ttk.Label(right, text="Bereit")
-        self.lbl_status.pack(fill="x")
+        self.progress.pack(fill="x", pady=(2, 4))
+        zeile = ttk.Frame(right)
+        zeile.pack(fill="x")
+        self.lbl_status = ttk.Label(zeile, text="Bereit", style="Status.TLabel")
+        self.lbl_status.pack(side="left")
+        self.lbl_time = ttk.Label(zeile, text="", style="Status.TLabel")
+        self.lbl_time.pack(side="right")
 
-        # Zähler
+        # Zähler als Kacheln
         cnt = ttk.Frame(right)
-        cnt.pack(fill="x", pady=(4, 6))
+        cnt.pack(fill="x", pady=(10, 10))
         self.counter = {}
-        for key, label in (("gefunden", "Anzeigen gefunden"), ("details", "Beschreibungen"),
-                           ("bewertet", "KI-bewertet"), ("relevant", "relevant")):
-            box = ttk.Frame(cnt, relief="groove", padding=(10, 4))
-            box.pack(side="left", padx=(0, 6))
+        for i, (key, label, farbe) in enumerate((("gefunden", "Anzeigen gefunden", P["accent"]),
+                                                 ("details", "Beschreibungen", "#7c5cff"),
+                                                 ("bewertet", "KI-bewertet", P["gold"]),
+                                                 ("relevant", "passend", P["accent2"]))):
             v = tk.StringVar(value="0")
-            ttk.Label(box, textvariable=v, font=("TkDefaultFont", 16, "bold")).pack()
-            ttk.Label(box, text=label, style="Sub.TLabel").pack()
+            theme.Karte(cnt, label, v, farbe).grid(row=0, column=i, sticky="ew", padx=(0 if i == 0 else 8, 0))
+            cnt.columnconfigure(i, weight=1)
             self.counter[key] = v
 
         self.nb = ttk.Notebook(right)
@@ -320,14 +313,14 @@ class App:
         # Tab 1: Live-Protokoll (Terminal-Look)
         tab = ttk.Frame(self.nb)
         self.nb.add(tab, text="  Live-Protokoll  ")
-        self.txt_log = tk.Text(tab, bg=TERM_BG, fg=TERM_FG, insertbackground=TERM_FG, wrap="word",
-                               font=("DejaVu Sans Mono", 10), relief="flat", padx=8, pady=6, state="disabled")
+        self.txt_log = tk.Text(tab, wrap="word", font=("DejaVu Sans Mono", 10), padx=12, pady=10, state="disabled")
+        theme.text_farben(self.txt_log, terminal=True)
         sb = ttk.Scrollbar(tab, command=self.txt_log.yview)
         self.txt_log.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
         self.txt_log.pack(fill="both", expand=True)
         for tag, color in (("info", "#8ab4f8"), ("warn", "#f9c74f"), ("err", "#ff6b6b"),
-                           ("ok", "#7bd88f"), ("time", "#777"), ("dim", "#9a9a9a")):
+                           ("ok", "#7bd88f"), ("time", P["term_dim"]), ("dim", "#9a9a9a")):
             self.txt_log.tag_configure(tag, foreground=color)
 
         # Tab 2: Anzeigen
@@ -341,9 +334,9 @@ class App:
                         ("leistung", "Leistung", 65), ("pl", "P/L", 45), ("status", "KI-Status", 110)):
             self.tree.heading(c, text=t, command=lambda c=c: self._sort(c))
             self.tree.column(c, width=w, stretch=False, anchor="center" if c in ("preis", "leistung", "pl") else "w")
-        self.tree.tag_configure("relevant", background="#e9f7ec")
-        self.tree.tag_configure("irrelevant", foreground="#999")
-        self.tree.tag_configure("top", background="#fff3c4")
+        self.tree.tag_configure("relevant", background=P["zeile_ok"])
+        self.tree.tag_configure("irrelevant", foreground=P["zeile_aus"])
+        self.tree.tag_configure("top", background=P["zeile_top"])
         sb = ttk.Scrollbar(tab, command=self.tree.yview)
         self.tree.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
@@ -363,8 +356,9 @@ class App:
                                      command=lambda: self.result_file and open_path(self.result_file))
         self.btn_report.pack(side="left", padx=4)
         ttk.Button(bar, text="Ergebnis-Ordner öffnen", command=lambda: open_path(self._outdir())).pack(side="left")
-        self.txt_res = tk.Text(tab, wrap="word", font=("TkDefaultFont", 11), relief="flat", padx=14, pady=10,
+        self.txt_res = tk.Text(tab, wrap="word", font=("TkDefaultFont", 11), padx=18, pady=14,
                                state="disabled", cursor="arrow")
+        theme.text_farben(self.txt_res)
         sb = ttk.Scrollbar(tab, command=self.txt_res.yview)
         self.txt_res.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
@@ -372,13 +366,13 @@ class App:
         t = self.txt_res
         t.tag_configure("h1", font=("TkDefaultFont", 16, "bold"), spacing3=6)
         t.tag_configure("h2", font=("TkDefaultFont", 13, "bold"), spacing1=12, spacing3=4)
-        t.tag_configure("rank", font=("TkDefaultFont", 12, "bold"), foreground=ACCENT, spacing1=14)
-        t.tag_configure("specs", foreground="#444", font=("DejaVu Sans Mono", 10))
-        t.tag_configure("pro", foreground="#1b7a2f")
-        t.tag_configure("con", foreground="#a0522d")
+        t.tag_configure("rank", font=("TkDefaultFont", 12, "bold"), foreground=P["accent"], spacing1=16)
+        t.tag_configure("specs", foreground=P["muted"], font=("DejaVu Sans Mono", 10))
+        t.tag_configure("pro", foreground=P["ok"])
+        t.tag_configure("con", foreground=P["warn"])
         t.tag_configure("fazit", font=("TkDefaultFont", 10, "italic"))
-        t.tag_configure("tipp", background="#fff3c4", lmargin1=8, lmargin2=8, rmargin=8, spacing1=4, spacing3=4)
-        t.tag_configure("dim", foreground="#777")
+        t.tag_configure("tipp", background=P["tipp_bg"], lmargin1=10, lmargin2=10, rmargin=10, spacing1=6, spacing3=6)
+        t.tag_configure("dim", foreground=P["muted"])
         self._set_result_placeholder()
 
     def _bezirk_zeilen(self):
@@ -585,6 +579,7 @@ class App:
             if info.version_lokal != self.version:      # Nummer erst jetzt bekannt (z.B. ZIP-Installation)
                 self.version = info.version_lokal
                 self.root.title(f"{APP_TITLE}  v{self.version}")
+                self.kopf.version_setzen(self.version)
             if manuell:
                 self._log(f"Neueste Version installiert (v{info.version_lokal}).", "ok")
             else:
@@ -609,6 +604,18 @@ class App:
         self._save_form()
         self.root.destroy()
         updater.neu_starten()
+
+    def _design_wechseln(self):
+        modus = self.var_design.get()
+        if modus == self.cfg.get("design", "hell"):
+            return
+        self.cfg["design"] = modus
+        self._save_form()
+        if self.worker and self.worker.is_alive():
+            messagebox.showinfo(APP_TITLE, "Das neue Design wird beim nächsten Start übernommen.")
+        elif messagebox.askyesno(APP_TITLE, "Das neue Design wird nach einem Neustart vollständig übernommen.\n\n"
+                                            "Jetzt neu starten?"):
+            self._neustart()
 
     def _ueber(self):
         if getattr(self, "_about", None) is not None and self._about.winfo_exists():
@@ -670,8 +677,7 @@ class App:
         for v in self.counter.values():
             v.set("0")
         self.progress.configure(value=0, maximum=1)
-        for lab in self.phase_labels.values():
-            lab.configure(style="Phase.TLabel")
+        self.stepper.setzen(-1)
         self.result_file = None
         self._marktlage = ("", [])
         self.btn_report.configure(state="disabled")
@@ -696,12 +702,8 @@ class App:
         t.configure(state="disabled")
 
     def _set_phase(self, name, done, total):
-        if name in self.phase_labels:
-            idx = PHASES.index(name)
-            for i, ph in enumerate(PHASES):
-                style = "PhaseDone.TLabel" if i < idx or name == "Fertig" else (
-                    "PhaseActive.TLabel" if i == idx else "Phase.TLabel")
-                self.phase_labels[ph].configure(style=style)
+        if name in PHASES:
+            self.stepper.setzen(PHASES.index(name), fertig=(name == "Fertig"))
         if total:
             if str(self.progress.cget("mode")) == "indeterminate":
                 self.progress.stop()      # stop() setzt den Wert auf 0 -> nur im Lauf-Modus aufrufen
@@ -790,7 +792,7 @@ class App:
             ins(markt + "\n", "dim")
             for i, (titel, url) in enumerate(quellen[:8]):
                 tag = f"quelle-{i}"
-                t.tag_configure(tag, foreground=ACCENT, underline=True)
+                t.tag_configure(tag, foreground=P["accent"], underline=True)
                 t.tag_bind(tag, "<Button-1>", lambda _e, u=url: webbrowser.open(u))
                 ins(f"[{titel}]", tag)
                 ins("  ")
@@ -804,7 +806,7 @@ class App:
             if li:
                 ins(f"{li.postcode} {li.location}   ", "dim")
                 tag = f"link-{e.id}"
-                t.tag_configure(tag, foreground=ACCENT, underline=True)
+                t.tag_configure(tag, foreground=P["accent"], underline=True)
                 t.tag_bind(tag, "<Button-1>", lambda _e, u=li.url: webbrowser.open(u))
                 t.tag_bind(tag, "<Enter>", lambda _e: t.configure(cursor="hand2"))
                 t.tag_bind(tag, "<Leave>", lambda _e: t.configure(cursor="arrow"))

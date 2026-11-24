@@ -6,6 +6,9 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 
+import theme
+from theme import P
+
 from willhaben import Willhaben, BUNDESLAENDER
 
 # Bezirkslisten pro Bundesland (nur einmal pro Programmstart laden)
@@ -63,17 +66,17 @@ class BezirkDialog(tk.Toplevel):
         f.pack(fill="both", expand=True)
         ttk.Label(f, text=f"Bezirke in {bl_name}", font=("TkDefaultFont", 12, "bold")).pack(anchor="w")
         ttk.Label(f, text="Nichts angehakt = ganzes Bundesland. Zahl = aktuelle Anzeigen im Bezirk (alle Kategorien).",
-                  foreground="#666", wraplength=500, justify="left").pack(anchor="w", pady=(0, 6))
+                  foreground=P["muted"], wraplength=500, justify="left").pack(anchor="w", pady=(0, 6))
         self.var_suche = tk.StringVar()
         suche = ttk.Entry(f, textvariable=self.var_suche)
         suche.pack(fill="x")
         suche.insert(0, "")
         self.var_suche.trace_add("write", lambda *a: self._filtern())
-        ttk.Label(f, text="Suchen, z.B. „Baden“ oder „10.“", foreground="#888").pack(anchor="w")
+        ttk.Label(f, text="Suchen, z.B. „Baden“ oder „10.“", foreground=P["muted"]).pack(anchor="w")
 
         rahmen = ttk.Frame(f)
         rahmen.pack(fill="both", expand=True, pady=(6, 6))
-        self.canvas = tk.Canvas(rahmen, highlightthickness=0)
+        self.canvas = tk.Canvas(rahmen, highlightthickness=0, bg=P["bg"])
         sb = ttk.Scrollbar(rahmen, orient="vertical", command=self.canvas.yview)
         self.liste = ttk.Frame(self.canvas)
         self.liste.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
@@ -85,10 +88,10 @@ class BezirkDialog(tk.Toplevel):
         for seq, d in (("<Button-4>", -1), ("<Button-5>", 1)):
             self.canvas.bind_all(seq, lambda e, d=d: self._scroll(e, d), add="+")
         self.canvas.bind_all("<MouseWheel>", lambda e: self._scroll(e, -1 if e.delta > 0 else 1), add="+")
-        self.lbl_status = ttk.Label(self.liste, text="Lade Bezirke von willhaben …", foreground="#666")
+        self.lbl_status = ttk.Label(self.liste, text="Lade Bezirke von willhaben …", foreground=P["muted"])
         self.lbl_status.pack(anchor="w", pady=10)
 
-        self.lbl_anzahl = ttk.Label(f, text="", foreground="#444")
+        self.lbl_anzahl = ttk.Label(f, text="", foreground=P["muted"])
         self.lbl_anzahl.pack(anchor="w")
         bf = ttk.Frame(f)
         bf.pack(fill="x", pady=(8, 0))
@@ -120,7 +123,7 @@ class BezirkDialog(tk.Toplevel):
     def _anzeigen(self, daten, fehler):
         self.lbl_status.destroy()
         if fehler or not daten:
-            ttk.Label(self.liste, text=f"Bezirke konnten nicht geladen werden.\n{fehler}", foreground="#b00020",
+            ttk.Label(self.liste, text=f"Bezirke konnten nicht geladen werden.\n{fehler}", foreground=P["danger"],
                       wraplength=340).pack(anchor="w", pady=10)
             return
         for name, aid, hits in daten:

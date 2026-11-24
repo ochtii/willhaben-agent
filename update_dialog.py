@@ -7,6 +7,9 @@ import tkinter as tk
 import webbrowser
 from tkinter import ttk, messagebox
 
+import theme
+from theme import P
+
 import updater
 
 
@@ -30,11 +33,11 @@ class UpdateDialog(tk.Toplevel):
         f.pack(fill="both", expand=True)
 
         if info.fehler:
-            kopf, farbe = "Update-Prüfung nicht möglich", "#b00020"
+            kopf, farbe = "Update-Prüfung nicht möglich", P["danger"]
         elif info.neuer:
-            kopf, farbe = "Eine neue Version ist verfügbar", "#0b6bcb"
+            kopf, farbe = "Eine neue Version ist verfügbar", P["accent"]
         else:
-            kopf, farbe = "Du verwendest die neueste Version", "#1b7a2f"
+            kopf, farbe = "Du verwendest die neueste Version", P["ok"]
         ttk.Label(f, text=kopf, font=("TkDefaultFont", 13, "bold"), foreground=farbe).pack(anchor="w")
 
         zeilen = [f"Installiert:  v{info.version_lokal}   ({info.lokal.kurz})"]
@@ -48,8 +51,9 @@ class UpdateDialog(tk.Toplevel):
         if info.neuer and info.aenderungen:
             ttk.Label(f, text=f"Änderungen ({len(info.aenderungen)}):", font=("TkDefaultFont", 10, "bold")).pack(
                 anchor="w", pady=(8, 2))
-            box = tk.Text(f, height=min(10, max(3, len(info.aenderungen) + 1)), wrap="word", relief="solid",
-                          borderwidth=1, font=("TkDefaultFont", 10))
+            box = tk.Text(f, height=min(10, max(3, len(info.aenderungen) + 1)), wrap="word",
+                          font=("TkDefaultFont", 10), padx=8, pady=6)
+            theme.text_farben(box)
             for a in info.aenderungen[:40]:
                 box.insert("end", "• " + "".join(c if ord(c) <= 0xFFFF else "" for c in a) + "\n")
             box.configure(state="disabled")
@@ -63,7 +67,7 @@ class UpdateDialog(tk.Toplevel):
                                                                                                     pady=(8, 0))
         bf = ttk.Frame(f)
         bf.pack(fill="x", pady=(12, 0))
-        link = ttk.Label(bf, text="Auf GitHub ansehen ↗", foreground="#0b6bcb", cursor="hand2")
+        link = ttk.Label(bf, text="Auf GitHub ansehen ↗", foreground=P["accent"], cursor="hand2")
         link.pack(side="left")
         link.bind("<Button-1>", lambda e: webbrowser.open(updater.REPO_URL + "/commits/" + updater.BRANCH))
         if info.neuer:
@@ -109,4 +113,4 @@ class UpdateDialog(tk.Toplevel):
 
     def _fehler(self, text: str):
         self.btn_install.configure(state="normal")
-        self.lbl_status.configure(text="✖ " + text, foreground="#b00020")
+        self.lbl_status.configure(text="✖ " + text, foreground=P["danger"])

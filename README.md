@@ -43,7 +43,8 @@ eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 - **Beim Start** prüft die App im Hintergrund auf GitHub, ob es eine neuere Version gibt. Wenn ja, zeigt sie Versionsnummern und Änderungen an: **Jetzt aktualisieren · Später · Diese Version überspringen**.
 - **Von Hand:** Einstellungen → **Nach Updates suchen …** Dort lässt sich auch die Prüfung beim Start abschalten.
 - **Terminal:** `willhaben-agent-cli --version` bzw. `willhaben-agent-cli --update`
-- **Versionsnummer** `1.0.N`: `1.0` steht in der Datei `VERSION` (für größere Sprünge von Hand ändern), **N ist die Anzahl der Commits auf `main`** und steigt bei jedem Push automatisch.
+- **Versionsnummer** `1.1.N`: `1.1` steht in der Datei `VERSION` (für größere Sprünge von Hand ändern). **N zählt die Commits seit der letzten Änderung von `VERSION`** und steigt bei jedem Push automatisch. Der Commit, der `VERSION` ändert, ist `.0`.
+- **Versionsverlauf:** `CHANGELOG.md`, in der App unter Hilfe → Über → „Neuigkeiten“.
 - **Aufräumen:** Ein Update übernimmt nur die Dateien, die laut `laufzeit-dateien.txt` der neuen Version gebraucht werden, und löscht im Installationsordner alles andere. Neue Programmdateien müssen deshalb in `laufzeit-dateien.txt` eingetragen werden.
 - **So wird installiert:**
   - Bei einem Git-Klon per `git pull`. Lokal geänderte Programmdateien werden nie überschrieben, das Update bricht dann mit Hinweis ab.
@@ -53,11 +54,15 @@ eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 
 ## Das Fenster
 
+Modernes Erscheinungsbild (Sun-Valley-Theme), wahlweise **hell oder dunkel**: Einstellungen → Design.
+
+
 | Bereich | Inhalt |
 |---|---|
 | **Links: Suchauftrag** | Suchbegriff, Kategorie, Beschreibung, Preisspanne, Bundesländer (Häkchen). Unter jedem angehakten Bundesland öffnet **„Bezirke …“** eine Auswahl aller Bezirke (live von willhaben, mit Suche und Anzeigenzahl). Nichts gewählt bedeutet das ganze Bundesland. Dazu Anzahl Top-Geräte. Die Eingaben werden fürs nächste Mal gemerkt. Darunter eine Kurzübersicht der Keys (bereit, heute verbraucht, zuletzt genutzt). |
 | **Einstellungen → API-Keys & Limits** (Strg+K) | **Modell** und **Ausweichmodell** aus der Liste der für deinen Key verfügbaren Gemini-Modelle wählen. Dazu beliebig viele Gemini-Keys: hinzufügen, ändern, testen, ein- und ausschalten, Reihenfolge festlegen, Verteilung gleichmäßig oder nacheinander. Verbrauch und Limits werden live angezeigt. |
-| **Oben: Phasen** | 1. Suche → 2. Details → 3. KI-Bewertung → 4. Endvergleich → 5. Fertig, mit Fortschrittsbalken, Zählern und Laufzeit |
+| **Kopfleiste** | Farbverlauf mit Version und Schnellzugriffen: API-Keys · Updates · Über |
+| **Fortschritt** | Stepper Suche → Details → KI-Bewertung → Endvergleich → Fertig, darunter Fortschrittsbalken und Laufzeit, dazu vier Kacheln (gefunden, Beschreibungen, KI-bewertet, passend) |
 | **Live-Protokoll** | Terminal-Ansicht: jede Seite, jede Wartezeit, jede KI-Anfrage |
 | **Anzeigen** | Tabelle, die sich live füllt: Preis, Ort, Zustand, KI-Werte für Leistung und Preis/Leistung. Grün = passend, grau = aussortiert, gelb = Top-Liste. Klick auf eine Spalte sortiert, Klick auf eine Zeile zeigt die KI-Begründung, Doppelklick öffnet die Anzeige im Browser. |
 | **Ergebnis** | Top-N mit Vor-/Nachteilen, Fazit, Tipp und Links zu den Anzeigen. Wird zusätzlich als Markdown-Bericht gespeichert. |
@@ -105,6 +110,10 @@ Für jede andere Kategorie oder spezielle Filter: Suche im Browser auf willhaben
 | `keys_dialog.py` | Fenster „API-Keys & Limits“ |
 | `updater.py`, `update_dialog.py` | Update-Prüfung und -Installation über GitHub |
 | `about_dialog.py` | Fenster „Über“: Funktionen, Ablauf, Versionsverlauf, Entwickler & Links |
+| `bezirk_dialog.py` | Auswahlfenster für die Bezirke eines Bundeslands |
+| `theme.py` | Design: Sun-Valley-Theme, Hell-/Dunkel-Palette, Kopfleiste, Stepper, Kacheln |
+| `CHANGELOG.md` | Versionsverlauf (wird im Über-Fenster angezeigt) |
+| `CLAUDE.md` | Entwicklungsregeln (README, Über-Fenster und Changelog bei jedem Push aktualisieren) |
 | `VERSION` | Haupt-/Nebenversion (die letzte Stelle zählt automatisch die Commits) |
 | `laufzeit-dateien.txt` | Liste der Dateien, die eine Installation braucht (alles andere wird entfernt) |
 | `settings.py` | gespeicherte Eingaben |

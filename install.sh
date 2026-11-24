@@ -88,7 +88,13 @@ if command -v git >/dev/null && git -C "$QUELLE" rev-parse HEAD >/dev/null 2>&1;
   SHA="$(git -C "$QUELLE" rev-parse HEAD)"
   NUMMER="?"
   if [ "$(git -C "$QUELLE" rev-parse --is-shallow-repository)" = "false" ]; then
-    NUMMER="$(git -C "$QUELLE" rev-list --count HEAD)"
+    # letzte Stelle der Version = Commits seit der letzten Änderung der VERSION-Datei
+    V_COMMIT="$(git -C "$QUELLE" log -1 --format=%H -- VERSION)"
+    if [ -n "$V_COMMIT" ]; then
+      NUMMER="$(git -C "$QUELLE" rev-list --count "$V_COMMIT..HEAD")"
+    else
+      NUMMER="$(git -C "$QUELLE" rev-list --count HEAD)"
+    fi
   fi
   .venv/bin/python updater.py --status "$SHA" "$NUMMER"
 fi

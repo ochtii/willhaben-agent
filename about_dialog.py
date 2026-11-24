@@ -14,8 +14,25 @@ ENTWICKLER = "ochtii"
 ENTWICKLER_URL = "https://github.com/ochtii"
 REPO_URL = updater.REPO_URL
 
-# Farben
-BLAU, GRUEN, DUNKEL, GRAU, HELL = "#0b6bcb", "#12a36b", "#1e1f24", "#6b6f76", "#f4f6f9"
+# Farben (werden beim Öffnen aus der aktuellen Palette übernommen -> Hell/Dunkel)
+BLAU, GRUEN, DUNKEL, GRAU, HELL, WEISS = "#0b6bcb", "#12a36b", "#1e1f24", "#6b6f76", "#f4f6f9", "#ffffff"
+
+
+def _farben_uebernehmen():
+    global BLAU, GRUEN, DUNKEL, GRAU, HELL, WEISS
+    from theme import P
+    BLAU, GRUEN, DUNKEL, GRAU = P["accent"], P["accent2"], P["fg"], P["muted"]
+    HELL, WEISS = P["bg"], P["card"]
+
+
+def P_DANGER() -> str:
+    from theme import P
+    return P["danger"]
+
+
+def _rand() -> str:
+    from theme import P
+    return P["rand"]
 
 
 def _mix(a: str, b: str, t: float) -> str:
@@ -26,10 +43,12 @@ def _mix(a: str, b: str, t: float) -> str:
 class AboutDialog(tk.Toplevel):
     def __init__(self, master, version: str, on_update=None):
         super().__init__(master)
+        _farben_uebernehmen()
+        self._version = version
         self.title("Über Willhaben KI-Agent")
         self.transient(master)
-        self.geometry("840x720")
-        self.minsize(780, 680)
+        self.geometry("860x780")
+        self.minsize(800, 720)
         self.configure(bg=HELL)
         self.on_update = on_update
         stand = updater.lokaler_stand()
@@ -41,7 +60,7 @@ class AboutDialog(tk.Toplevel):
         for titel, bau in (("Überblick", self._tab_ueberblick), ("Funktionen", self._tab_funktionen),
                            ("So funktioniert's", self._tab_ablauf), ("Neuigkeiten", self._tab_neuigkeiten),
                            ("Entwickler & Links", self._tab_entwickler)):
-            f = tk.Frame(nb, bg="white", padx=22, pady=18)
+            f = tk.Frame(nb, bg=WEISS, padx=22, pady=18)
             nb.add(f, text=f"  {titel}  ")
             bau(f)
 
@@ -116,16 +135,17 @@ class AboutDialog(tk.Toplevel):
 
     # ------------------------------------------------------------------ Bausteine
     def _h(self, parent, text, top=0):
-        tk.Label(parent, text=text, bg="white", fg=DUNKEL, font=("TkDefaultFont", 13, "bold")).pack(
+        tk.Label(parent, text=text, bg=WEISS, fg=DUNKEL, font=("TkDefaultFont", 13, "bold")).pack(
             anchor="w", pady=(top, 6))
 
-    def _p(self, parent, text, fg=DUNKEL, size=10, pady=(0, 8)):
-        lbl = tk.Label(parent, text=text, bg="white", fg=fg, font=("TkDefaultFont", size), justify="left",
+    def _p(self, parent, text, fg=None, size=10, pady=(0, 8)):
+        lbl = tk.Label(parent, text=text, bg=WEISS, fg=fg or DUNKEL, font=("TkDefaultFont", size), justify="left",
                        anchor="w", wraplength=720)
         lbl.pack(anchor="w", fill="x", pady=pady)
         return lbl
 
-    def _link(self, parent, text, url, size=10, bg="white"):
+    def _link(self, parent, text, url, size=10, bg=None):
+        bg = bg or WEISS
         l = tk.Label(parent, text=text, bg=bg, fg=BLAU, cursor="hand2", font=("TkDefaultFont", size, "underline"))
         l.bind("<Button-1>", lambda e: webbrowser.open(url))
         l.bind("<Enter>", lambda e: l.configure(fg=GRUEN))
@@ -133,7 +153,7 @@ class AboutDialog(tk.Toplevel):
         return l
 
     def _karte(self, parent, symbol, titel, text, farbe):
-        k = tk.Frame(parent, bg=HELL, padx=14, pady=12, highlightthickness=1, highlightbackground="#e2e6ec")
+        k = tk.Frame(parent, bg=HELL, padx=14, pady=12, highlightthickness=1, highlightbackground=_rand())
         tk.Label(k, text=symbol, bg=HELL, fg=farbe, font=("DejaVu Sans", 22, "bold")).pack(anchor="w")
         tk.Label(k, text=titel, bg=HELL, fg=DUNKEL, font=("TkDefaultFont", 11, "bold")).pack(anchor="w", pady=(4, 2))
         tk.Label(k, text=text, bg=HELL, fg=GRAU, font=("TkDefaultFont", 9), justify="left", wraplength=200).pack(
@@ -147,7 +167,7 @@ class AboutDialog(tk.Toplevel):
                    "jede Beschreibung und lässt Google Gemini die Angebote wie ein erfahrener Einkaufsberater "
                    "bewerten. Am Ende bekommst du die besten Treffer nach Preis/Leistung, mit Vor- und Nachteilen, "
                    "einer Einordnung der aktuellen Marktlage und einer klaren Empfehlung.")
-        reihe = tk.Frame(f, bg="white")
+        reihe = tk.Frame(f, bg=WEISS)
         reihe.pack(fill="x", pady=(8, 10))
         for i, (sym, t, txt, farbe) in enumerate((
                 ("≡", "Alle Anzeigen", "Jede Ergebnisseite, jede Beschreibung – nicht nur die erste Seite.", BLAU),
@@ -162,7 +182,7 @@ class AboutDialog(tk.Toplevel):
         self._h(f, "Alles drin")
         punkte = [
             ("Vollständige Suche", "alle Ergebnisseiten, Detailbeschreibungen, Marke, Zustand, Display"),
-            ("Regionen", "Bundesländer und Bezirke (auch per PLZ, z. B. 1100)"),
+            ("Regionen", "Bundesländer + Bezirksauswahl (live von willhaben), frei kombinierbar"),
             ("KI-Bewertung", "Leistung, Preis/Leistung, Zustand, Warnsignale je Anzeige"),
             ("Endvergleich", "Top-N mit Vor-/Nachteilen, Fazit und Kauftipp"),
             ("Marktrecherche", "aktuelle Preise & Trends per Google-Suche, mit Quellen"),
@@ -172,18 +192,19 @@ class AboutDialog(tk.Toplevel):
             ("Limit-Manager", "Verbrauch, Minuten- & Tageslimits live, Pausen bei Überlastung"),
             ("Live-Ansicht", "Protokoll, Anzeigen-Tabelle und Ergebnis in Echtzeit"),
             ("Berichte", "Markdown-Bericht + JSON aller Anzeigen und Bewertungen"),
-            ("Updates", "prüft GitHub beim Start, Update mit einem Klick"),
+            ("Updates", "prüft GitHub beim Start, Update mit einem Klick, räumt selbst auf"),
+            ("Modernes Design", "helles oder dunkles Erscheinungsbild (Einstellungen → Design)"),
         ]
-        grid = tk.Frame(f, bg="white")
+        grid = tk.Frame(f, bg=WEISS)
         grid.pack(fill="both", expand=True)
         for i, (t, txt) in enumerate(punkte):
-            zelle = tk.Frame(grid, bg="white")
+            zelle = tk.Frame(grid, bg=WEISS)
             zelle.grid(row=i // 2, column=i % 2, sticky="nw", padx=(0, 24), pady=3)
-            tk.Label(zelle, text="✔", bg="white", fg=GRUEN, font=("TkDefaultFont", 11, "bold")).pack(side="left", anchor="n")
-            box = tk.Frame(zelle, bg="white")
+            tk.Label(zelle, text="✔", bg=WEISS, fg=GRUEN, font=("TkDefaultFont", 11, "bold")).pack(side="left", anchor="n")
+            box = tk.Frame(zelle, bg=WEISS)
             box.pack(side="left", padx=(6, 0))
-            tk.Label(box, text=t, bg="white", fg=DUNKEL, font=("TkDefaultFont", 10, "bold")).pack(anchor="w")
-            tk.Label(box, text=txt, bg="white", fg=GRAU, font=("TkDefaultFont", 9), wraplength=340,
+            tk.Label(box, text=t, bg=WEISS, fg=DUNKEL, font=("TkDefaultFont", 10, "bold")).pack(anchor="w")
+            tk.Label(box, text=txt, bg=WEISS, fg=GRAU, font=("TkDefaultFont", 9), wraplength=340,
                      justify="left").pack(anchor="w")
         grid.columnconfigure(0, weight=1)
         grid.columnconfigure(1, weight=1)
@@ -203,56 +224,74 @@ class AboutDialog(tk.Toplevel):
                              "Top-Geräte mit Vor- und Nachteilen und einer klaren Empfehlung."),
         ]
         for i, (t, txt) in enumerate(schritte, 1):
-            zeile = tk.Frame(f, bg="white")
+            zeile = tk.Frame(f, bg=WEISS)
             zeile.pack(fill="x", pady=5)
-            kreis = tk.Canvas(zeile, width=34, height=34, bg="white", highlightthickness=0)
+            kreis = tk.Canvas(zeile, width=34, height=34, bg=WEISS, highlightthickness=0)
             kreis.pack(side="left", anchor="n")
             kreis.create_oval(2, 2, 32, 32, fill=_mix(BLAU, GRUEN, (i - 1) / 4), outline="")
             kreis.create_text(17, 17, text=str(i), fill="white", font=("TkDefaultFont", 12, "bold"))
-            box = tk.Frame(zeile, bg="white")
+            box = tk.Frame(zeile, bg=WEISS)
             box.pack(side="left", fill="x", expand=True, padx=(12, 0))
-            tk.Label(box, text=t, bg="white", fg=DUNKEL, font=("TkDefaultFont", 11, "bold")).pack(anchor="w")
-            tk.Label(box, text=txt, bg="white", fg=GRAU, font=("TkDefaultFont", 9), wraplength=660,
+            tk.Label(box, text=t, bg=WEISS, fg=DUNKEL, font=("TkDefaultFont", 11, "bold")).pack(anchor="w")
+            tk.Label(box, text=txt, bg=WEISS, fg=GRAU, font=("TkDefaultFont", 9), wraplength=660,
                      justify="left").pack(anchor="w")
 
     def _tab_neuigkeiten(self, f):
         self._h(f, "Versionsverlauf")
-        self._p(f, "Die Versionsnummer steigt mit jeder Änderung auf GitHub automatisch – v1.0.N, wobei N die "
-                   "Anzahl der Änderungen ist.", fg=GRAU, size=9)
-        liste = tk.Frame(f, bg="white")
-        liste.pack(fill="both", expand=True)
+        self._p(f, "Die letzte Stelle der Versionsnummer steigt mit jeder Änderung automatisch. Größere Schritte "
+                   "(z. B. 1.1 → 1.2) markieren neue Funktionsblöcke.", fg=GRAU, size=9)
+        aussen = tk.Frame(f, bg=WEISS)
+        aussen.pack(fill="both", expand=True)
+        canvas = tk.Canvas(aussen, bg=WEISS, highlightthickness=0)
+        sb = ttk.Scrollbar(aussen, orient="vertical", command=canvas.yview)
+        liste = tk.Frame(canvas, bg=WEISS)
+        liste.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        win = canvas.create_window((0, 0), window=liste, anchor="nw")
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(win, width=e.width))
+        canvas.configure(yscrollcommand=sb.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+        for seq, d in (("<Button-4>", -1), ("<Button-5>", 1)):
+            canvas.bind(seq, lambda e, d=d: canvas.yview_scroll(d * 2, "units"))
+            liste.bind(seq, lambda e, d=d: canvas.yview_scroll(d * 2, "units"))
         lade = self._p(liste, "Lade Versionsverlauf von GitHub …", fg=GRAU)
-        installiert = updater.lokaler_stand().kurz
+        installiert = self._version
 
         def fertig(eintraege, fehler):
             if not self.winfo_exists():
                 return
             lade.destroy()
             if fehler:
-                self._p(liste, f"Versionsverlauf nicht abrufbar: {fehler}", fg="#b00020")
+                self._p(liste, f"Versionsverlauf nicht abrufbar: {fehler}", fg=P_DANGER())
                 return
             for i, v in enumerate(eintraege):
-                zeile = tk.Frame(liste, bg=HELL if i % 2 == 0 else "white", padx=10, pady=6)
-                zeile.pack(fill="x")
-                aktuell = v["sha"] == installiert
-                tk.Label(zeile, text=f"v{v['version']}", bg=zeile["bg"], fg=GRUEN if i == 0 else BLAU,
-                         font=("TkDefaultFont", 10, "bold"), width=8, anchor="w").pack(side="left")
-                tk.Label(zeile, text=v["datum"], bg=zeile["bg"], fg=GRAU, font=("TkDefaultFont", 9),
-                         width=11, anchor="w").pack(side="left")
-                text = "".join(ch for ch in v["nachricht"] if ord(ch) <= 0xFFFF)
-                tk.Label(zeile, text=text, bg=zeile["bg"], fg=DUNKEL, font=("TkDefaultFont", 10),
-                         anchor="w", justify="left", wraplength=470).pack(side="left", fill="x", expand=True)
-                if aktuell:
-                    tk.Label(zeile, text=" installiert ", bg=GRUEN, fg="white",
+                karte = tk.Frame(liste, bg=HELL if i % 2 == 0 else WEISS, padx=12, pady=8)
+                karte.pack(fill="x", pady=(0, 2))
+                kopf = tk.Frame(karte, bg=karte["bg"])
+                kopf.pack(fill="x")
+                tk.Label(kopf, text=f"v{v['version']}", bg=karte["bg"], fg=GRUEN if i == 0 else BLAU,
+                         font=("TkDefaultFont", 11, "bold")).pack(side="left")
+                tk.Label(kopf, text=v["datum"], bg=karte["bg"], fg=GRAU, font=("TkDefaultFont", 9)).pack(
+                    side="left", padx=10)
+                if v["version"] == installiert:
+                    tk.Label(kopf, text=" installiert ", bg=GRUEN, fg="white",
                              font=("TkDefaultFont", 8, "bold")).pack(side="right")
                 elif i == 0:
-                    tk.Label(zeile, text=" neu ", bg=BLAU, fg="white", font=("TkDefaultFont", 8, "bold")).pack(side="right")
-            self._link(f, "Alle Änderungen auf GitHub ansehen ➜", f"{REPO_URL}/commits/{updater.BRANCH}").pack(
+                    tk.Label(kopf, text=" neu ", bg=BLAU, fg="white", font=("TkDefaultFont", 8, "bold")).pack(side="right")
+                for punkt in v["punkte"]:
+                    zeile = tk.Frame(karte, bg=karte["bg"])
+                    zeile.pack(fill="x", anchor="w")
+                    tk.Label(zeile, text="•", bg=karte["bg"], fg=GRUEN, font=("TkDefaultFont", 10, "bold")).pack(
+                        side="left", anchor="n")
+                    tk.Label(zeile, text="".join(ch for ch in punkt if ord(ch) <= 0xFFFF), bg=karte["bg"],
+                             fg=DUNKEL, font=("TkDefaultFont", 9), justify="left", anchor="w",
+                             wraplength=700).pack(side="left", padx=(6, 0), fill="x")
+            self._link(f, "Kompletter Verlauf auf GitHub ➜", f"{REPO_URL}/blob/{updater.BRANCH}/CHANGELOG.md").pack(
                 anchor="w", pady=(10, 0))
 
         def work():
             try:
-                daten, fehler = updater.verlauf(10), ""
+                daten, fehler = updater.verlauf(15), ""
             except updater.UpdateFehler as e:
                 daten, fehler = [], str(e)
             except Exception as e:
@@ -261,7 +300,7 @@ class AboutDialog(tk.Toplevel):
         threading.Thread(target=work, daemon=True).start()
 
     def _tab_entwickler(self, f):
-        karte = tk.Frame(f, bg=HELL, padx=18, pady=16, highlightthickness=1, highlightbackground="#e2e6ec")
+        karte = tk.Frame(f, bg=HELL, padx=18, pady=16, highlightthickness=1, highlightbackground=_rand())
         karte.pack(fill="x")
         av = tk.Canvas(karte, width=64, height=64, bg=HELL, highlightthickness=0)
         av.pack(side="left")
@@ -274,7 +313,7 @@ class AboutDialog(tk.Toplevel):
         self._link(info, ENTWICKLER_URL.replace("https://", ""), ENTWICKLER_URL, bg=HELL).pack(anchor="w")
 
         self._h(f, "Links", top=16)
-        links = tk.Frame(f, bg="white")
+        links = tk.Frame(f, bg=WEISS)
         links.pack(fill="x")
         for i, (titel, url, txt) in enumerate((
                 ("Repository", REPO_URL, "Quellcode, Anleitung und Installation"),
@@ -282,17 +321,17 @@ class AboutDialog(tk.Toplevel):
                 ("Versionsgeschichte", f"{REPO_URL}/commits/{updater.BRANCH}", "alle Änderungen im Detail"),
                 ("API-Key-Anleitung", f"{REPO_URL}/blob/{updater.BRANCH}/ANLEITUNG-API-KEY.md",
                  "Google-Gemini-Key in 3 Minuten"))):
-            zelle = tk.Frame(links, bg="white")
+            zelle = tk.Frame(links, bg=WEISS)
             zelle.grid(row=i // 2, column=i % 2, sticky="w", padx=(0, 30), pady=4)
             self._link(zelle, "➜ " + titel, url, size=10).pack(anchor="w")
-            tk.Label(zelle, text=txt, bg="white", fg=GRAU, font=("TkDefaultFont", 9)).pack(anchor="w")
+            tk.Label(zelle, text=txt, bg=WEISS, fg=GRAU, font=("TkDefaultFont", 9)).pack(anchor="w")
 
         self._h(f, "Gut zu wissen", top=14)
         for txt in ("Deine API-Keys bleiben auf deinem PC (~/.config/willhaben-agent, nur für dich lesbar).",
                     "An Google gehen nur öffentliche Anzeigentexte – keine Telefonnummern oder Adressen.",
                     "Nur für den privaten Gebrauch. Bitte die Nutzungsbedingungen von willhaben beachten.",
                     "Gebaut mit Python, Tkinter und Google Gemini."):
-            zeile = tk.Frame(f, bg="white")
+            zeile = tk.Frame(f, bg=WEISS)
             zeile.pack(anchor="w", pady=1)
-            tk.Label(zeile, text="●", bg="white", fg=GRUEN, font=("TkDefaultFont", 8)).pack(side="left")
-            tk.Label(zeile, text=txt, bg="white", fg=DUNKEL, font=("TkDefaultFont", 9)).pack(side="left", padx=6)
+            tk.Label(zeile, text="●", bg=WEISS, fg=GRUEN, font=("TkDefaultFont", 8)).pack(side="left")
+            tk.Label(zeile, text=txt, bg=WEISS, fg=DUNKEL, font=("TkDefaultFont", 9)).pack(side="left", padx=6)
