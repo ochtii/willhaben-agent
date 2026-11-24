@@ -63,25 +63,18 @@ class AboutDialog(tk.Toplevel):
         self._version = version
         self.title("Über Willhaben KI-Agent")
         self.transient(master)
-        self.geometry("860x780")
-        self.minsize(800, 720)
+        # passt auch auf Bildschirme mit 768 Pixel Höhe; Inhalte scrollen, die Knöpfe unten bleiben sichtbar
+        hoehe = max(520, min(780, self.winfo_screenheight() - 90))
+        self.geometry(f"860x{hoehe}")
+        self.minsize(760, 480)
         self.configure(bg=HELL)
         self.on_update = on_update
         stand = updater.lokaler_stand()
         self._banner(version, stand)
         self._style()
 
-        nb = ttk.Notebook(self, style="About.TNotebook")
-        nb.pack(fill="both", expand=True, padx=16, pady=(12, 0))
-        for titel, bau in (("Überblick", self._tab_ueberblick), ("Funktionen", self._tab_funktionen),
-                           ("So funktioniert's", self._tab_ablauf), ("Neuigkeiten", self._tab_neuigkeiten),
-                           ("Entwickler & Links", self._tab_entwickler)):
-            f = tk.Frame(nb, bg=WEISS, padx=22, pady=18)
-            nb.add(f, text=f"  {titel}  ")
-            bau(f)
-
         unten = tk.Frame(self, bg=HELL)
-        unten.pack(fill="x", padx=16, pady=12)
+        unten.pack(side="bottom", fill="x", padx=16, pady=12)      # zuerst packen: bleibt immer sichtbar
         tk.Label(unten, text=f"© {ENTWICKLER} · Open Source auf GitHub", bg=HELL, fg=GRAU,
                  font=("TkDefaultFont", 9)).pack(side="left")
         ttk.Button(unten, text="Schließen", command=self.destroy).pack(side="right")
@@ -89,7 +82,48 @@ class AboutDialog(tk.Toplevel):
         if on_update:
             ttk.Button(unten, text="Nach Updates suchen",
                        command=lambda: (self.destroy(), on_update())).pack(side="right")
+
+        nb = ttk.Notebook(self, style="About.TNotebook")
+        nb.pack(fill="both", expand=True, padx=16, pady=(12, 0))
+        for titel, bau, scrollen in (("Überblick", self._tab_ueberblick, True),
+                                     ("Funktionen", self._tab_funktionen, True),
+                                     ("So funktioniert's", self._tab_ablauf, True),
+                                     ("Neuigkeiten", self._tab_neuigkeiten, False),   # scrollt selbst
+                                     ("Entwickler & Links", self._tab_entwickler, True)):
+            if scrollen:
+                aussen, f = self._scrollbereich(nb)
+            else:
+                aussen = f = tk.Frame(nb, bg=WEISS, padx=22, pady=18)
+            nb.add(aussen, text=f"  {titel}  ")
+            bau(f)
+            if scrollen:
+                _mausrad(aussen, aussen.canvas)
+
         self.bind("<Escape>", lambda e: self.destroy())
+
+    @staticmethod
+    def _scrollbereich(nb):
+        """Reiter mit senkrechter Bildlaufleiste, die nur erscheint, wenn der Inhalt nicht hineinpasst."""
+        aussen = tk.Frame(nb, bg=WEISS)
+        canvas = tk.Canvas(aussen, bg=WEISS, highlightthickness=0, bd=0)
+        sb = ttk.Scrollbar(aussen, orient="vertical", command=canvas.yview)
+        innen = tk.Frame(canvas, bg=WEISS, padx=22, pady=18)
+        fenster = canvas.create_window((0, 0), window=innen, anchor="nw")
+        canvas.configure(yscrollcommand=sb.set)
+        canvas.pack(side="left", fill="both", expand=True)
+
+        def anpassen(_e=None):
+            canvas.configure(scrollregion=(0, 0, innen.winfo_reqwidth(), innen.winfo_reqheight()))
+            if innen.winfo_reqheight() > canvas.winfo_height() > 1:
+                if not sb.winfo_ismapped():
+                    sb.pack(side="right", fill="y", before=canvas)
+            elif sb.winfo_ismapped():
+                sb.pack_forget()
+                canvas.yview_moveto(0)
+        innen.bind("<Configure>", anpassen)
+        canvas.bind("<Configure>", lambda e: (canvas.itemconfigure(fenster, width=e.width), anpassen()))
+        aussen.canvas = canvas
+        return aussen, innen
 
     # ------------------------------------------------------------------ Kopf
     def _banner(self, version: str, stand):

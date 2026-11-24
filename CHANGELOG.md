@@ -4,6 +4,10 @@ Die Versionsnummer lautet `<VERSION>.<N>`: `VERSION` steht in der gleichnamigen 
 **N** zählt die Commits seit der letzten Änderung dieser Datei und steigt mit jedem Push automatisch.
 Die App zeigt diesen Verlauf unter Hilfe → Über → „Neuigkeiten“.
 
+## 1.2.2 – 2026-11-24
+- Behoben: Im Über-Fenster waren die Knöpfe unten („Nach Updates suchen“, „GitHub öffnen“, „Schließen“) bei kleineren Bildschirmen oder größerer Schrift abgeschnitten – sie bleiben jetzt immer sichtbar
+- Das Über-Fenster passt seine Höhe an den Bildschirm an; passt ein Reiter nicht hinein, erscheint eine Bildlaufleiste (auch mit dem Mausrad bedienbar)
+
 ## 1.2.1 – 2026-11-24
 - Alle willhaben-Kategorien: 19 Hauptkategorien mit rund 190 Unterkategorien, Auswahl in zwei Stufen (Haupt- und Unterkategorie)
 - Passender Beispieltext unter der Beschreibung für jede Kategorie (z. B. Wintersport, Fernseher, LEGO, Antiquitäten)
