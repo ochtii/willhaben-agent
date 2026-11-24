@@ -65,7 +65,7 @@ Danach einen **API-Key** holen (am einfachsten und kostenlos: Google Gemini) und
 - **Von Hand:** Zahnrad → Einstellungen → **Allgemein & Updates** → „Jetzt nach Updates suchen …“. Dort lässt sich auch die Prüfung beim Start abschalten.
 - **Terminal:** `willhaben-agent-cli --version` bzw. `willhaben-agent-cli --update`
 - **Versionsnummer** `1.2.N`: `1.2` steht in der Datei `VERSION` (für größere Sprünge von Hand ändern). **N zählt die Commits seit der letzten Änderung von `VERSION`** und steigt bei jedem Push automatisch. Der Commit, der `VERSION` ändert, ist `.0`.
-- **Versionsverlauf:** `CHANGELOG.md`, in der App unter Hilfe → Über → „Neuigkeiten“.
+- **Versionsverlauf:** `CHANGELOG.md`, in der App über das **?** rechts oben → „Neuigkeiten“.
 - **Aufräumen:** Ein Update übernimmt nur die Dateien, die laut `laufzeit-dateien.txt` der neuen Version gebraucht werden, und löscht im Installationsordner alles andere. Neue Programmdateien müssen deshalb in `laufzeit-dateien.txt` eingetragen werden.
 - **So wird installiert:**
   - Bei einem Git-Klon per `git pull`. Lokal geänderte Programmdateien werden nie überschrieben, das Update bricht dann mit Hinweis ab.
@@ -81,8 +81,7 @@ Modernes Erscheinungsbild (Sun-Valley-Theme), wahlweise **hell oder dunkel**: Ei
 | Bereich | Inhalt |
 |---|---|
 | **Links: Suchauftrag** | Suchbegriff, Haupt- und Unterkategorie (alle willhaben-Kategorien, mit passendem Beispieltext), Beschreibung, Preisspanne, Bundesländer (Häkchen). Unter jedem angehakten Bundesland öffnet **„Bezirke …“** eine Auswahl aller Bezirke (live von willhaben, mit Suche und Anzeigenzahl). Nichts gewählt bedeutet das ganze Bundesland. Dazu Anzahl Top-Geräte. Die Eingaben werden fürs nächste Mal gemerkt. Darunter eine Kurzübersicht der Keys (bereit, heute verbraucht, zuletzt genutzt). |
-| **Kopfleiste** | Farbverlauf mit Version, rechts das **Zahnrad** für die Einstellungen |
-| **Menü „Hilfe“** | Einstellungen … (Strg+K), Über … |
+| **Kopfleiste** | Farbverlauf mit Version, rechts das **?** (Über-Fenster mit Funktionen, Anleitung, Neuigkeiten, F1) und das **Zahnrad** (Einstellungen, Strg+K). Eine Menüleiste gibt es nicht mehr. |
 | **Einstellungen → KI-Anbieter & Keys** | **Anbieter** wählen (Gemini, ChatGPT, Claude, Perplexity, Mistral, DeepSeek, Grok, Groq, OpenRouter, Together, eigene Adresse). Daneben **„Anleitung: …-Key holen“**: Schritt-für-Schritt-Anleitung für genau diesen Anbieter mit Link zur Key-Seite. **Modell** und **Ausweichmodell** aus der Liste der für deinen Key verfügbaren Modelle (passt sich automatisch an, wenn ein Modell fehlt). Beliebig viele Keys je Anbieter: hinzufügen, ändern, testen, ein- und ausschalten, Reihenfolge festlegen, Verteilung gleichmäßig oder nacheinander. Verbrauch und Limits werden live angezeigt. |
 | **Einstellungen → Darstellung** | Hell oder Dunkel (mit Vorschau) |
 | **Einstellungen → Allgemein & Updates** | Ergebnis-Ordner ändern/öffnen, Update-Prüfung beim Start, „Jetzt nach Updates suchen“, Speicherort der Einstellungen und Keys |

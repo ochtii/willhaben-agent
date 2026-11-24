@@ -151,10 +151,11 @@ class Kopfleiste(tk.Canvas):
     """Farbverlauf-Kopfzeile mit Icon, Titel, Version und Zahnrad (Einstellungen) rechts."""
 
     def __init__(self, master, titel: str, untertitel: str, version: str, icon: tk.PhotoImage | None,
-                 einstellungen=None):
+                 einstellungen=None, hilfe=None):
         super().__init__(master, height=64, highlightthickness=0, bd=0)
         self.titel, self.untertitel, self.version, self.icon = titel, untertitel, version, icon
         self.einstellungen = einstellungen
+        self.hilfe = hilfe
         self.bind("<Configure>", lambda e: self.zeichnen())
 
     def version_setzen(self, v: str):
@@ -183,6 +184,38 @@ class Kopfleiste(tk.Canvas):
         self.tag_raise(vid)
         if self.einstellungen is not None:
             self._zahnrad(w - 36, h / 2, mix(a, b, 1.0))
+        if self.hilfe is not None:
+            self._fragezeichen(w - 88, h / 2, mix(a, b, (w - 88) / w))
+
+    def _symbol_hover(self, teile, hover, cx, cy, befehl, extra=None):
+        """Gemeinsames Hover-/Klick-Verhalten der runden Kopfleisten-Symbole."""
+        def rein(_e):
+            self.itemconfigure(hover, state="normal")
+            if extra:
+                extra(True)
+            self.configure(cursor="hand2")
+
+        def raus(_e):
+            self.itemconfigure(hover, state="hidden")
+            if extra:
+                extra(False)
+            self.configure(cursor="")
+        for t in teile:
+            self.tag_bind(t, "<Button-1>", lambda e: befehl())
+            self.tag_bind(t, "<Enter>", rein)
+            self.tag_bind(t, "<Leave>", raus)
+
+    def _fragezeichen(self, cx: float, cy: float, grund: str):
+        """Hilfe-Symbol: Kreis mit Fragezeichen, öffnet das Über-Fenster."""
+        hover = self.create_oval(cx - 22, cy - 22, cx + 22, cy + 22, fill=mix(grund, "#ffffff", 0.22), outline="",
+                                 state="hidden")
+        # gefüllte Fläche in Hintergrundfarbe: ganzer Kreis ist anklickbar, nicht nur Ring und Zeichen
+        flaeche = self.create_oval(cx - 14, cy - 14, cx + 14, cy + 14, outline="#ffffff", width=2.5, fill=grund)
+        text = self.create_text(cx, cy + 1, text="?", fill="#ffffff", font=(FONT, 15, "bold"))
+        self._symbol_hover((hover, flaeche, text), hover, cx, cy, self.hilfe,
+                           extra=lambda an: self.itemconfigure(flaeche, fill=mix(grund, "#ffffff", 0.22) if an
+                                                               else grund))
+        self.hilfe_bbox = (cx - 22, cy - 22, cx + 22, cy + 22)
 
     def _zahnrad(self, cx: float, cy: float, grund: str):
         """Zahnrad als Vektorgrafik (sieht auf jedem System gleich aus) mit runder Hover-Fläche."""

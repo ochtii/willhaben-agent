@@ -147,23 +147,19 @@ class App:
 
     # ------------------------------------------------------------------ Layout
     def _build(self):
-        menubar = tk.Menu(self.root)
-        h = tk.Menu(menubar, tearoff=0)
-        h.add_command(label="Einstellungen …", command=self.open_einstellungen, accelerator="Strg+K")
-        h.add_separator()
-        h.add_command(label="Über …", command=self._ueber)
-        menubar.add_cascade(label="Hilfe", menu=h)
-        self.root.configure(menu=menubar)
+        # Kein Menü mehr: Zahnrad (Einstellungen) und Fragezeichen (Über) sitzen rechts in der Kopfleiste
         self.root.bind_all("<Control-k>", lambda e: self.open_einstellungen())
         self.root.bind_all("<Control-comma>", lambda e: self.open_einstellungen())
         self.root.bind_all("<Control-q>", lambda e: self.on_close())
+        self.root.bind_all("<F1>", lambda e: self._ueber())
         try:
             img = tk.PhotoImage(file=str(Path(__file__).resolve().parent / "icon.png"))
             self._kopf_icon = img.subsample(max(1, img.width() // 40))
         except Exception:
             self._kopf_icon = None
         self.kopf = theme.Kopfleiste(self.root, APP_TITLE, "Durchsucht alle Anzeigen auf willhaben und bewertet sie mit KI",
-                                     self.version, self._kopf_icon, einstellungen=self.open_einstellungen)
+                                     self.version, self._kopf_icon, einstellungen=self.open_einstellungen,
+                                     hilfe=self._ueber)
         self.kopf.pack(fill="x")
         main = ttk.PanedWindow(self.root, orient="horizontal")
         main.pack(fill="both", expand=True)

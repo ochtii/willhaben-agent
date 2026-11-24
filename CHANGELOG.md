@@ -2,7 +2,11 @@
 
 Die Versionsnummer lautet `<VERSION>.<N>`: `VERSION` steht in der gleichnamigen Datei (z. B. `1.1`),
 **N** zählt die Commits seit der letzten Änderung dieser Datei und steigt mit jedem Push automatisch.
-Die App zeigt diesen Verlauf unter Hilfe → Über → „Neuigkeiten“.
+Die App zeigt diesen Verlauf im Über-Fenster (**?** rechts oben) unter „Neuigkeiten“.
+
+## 1.2.4 – 2026-11-24
+- Neu: Fragezeichen rechts oben neben dem Zahnrad – öffnet direkt das Über-Fenster (auch mit F1)
+- Die Menüleiste „Hilfe“ ist entfallen, dadurch mehr Platz im Fenster; Einstellungen weiterhin über das Zahnrad oder Strg+K
 
 ## 1.2.3 – 2026-11-24
 - Neu: Reiter „Berichte“ mit allen früheren Suchläufen – neueste zuerst, formatiert lesbar mit klickbaren Links, auch löschbar

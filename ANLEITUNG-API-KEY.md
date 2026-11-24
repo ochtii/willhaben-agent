@@ -4,8 +4,7 @@ Der Agent nutzt standardmäßig **Google Gemini** (kostenloser Einstieg, Anleitu
 Anthropic Claude, Perplexity, Mistral, DeepSeek, xAI Grok, Groq, OpenRouter, Together AI** oder eine eigene
 OpenAI-kompatible Adresse (siehe „Andere KI-Anbieter“ weiter unten).
 
-Den Key trägt man im Programm über das **Zahnrad rechts oben → „KI-Anbieter & Keys“** ein (auch: Hilfe → Einstellungen
-oder Strg+K). Man kann beliebig viele Keys je Anbieter eintragen, der Agent verteilt die Anfragen dann automatisch.
+Den Key trägt man im Programm über das **Zahnrad rechts oben → „KI-Anbieter & Keys“** ein (auch mit Strg+K). Man kann beliebig viele Keys je Anbieter eintragen, der Agent verteilt die Anfragen dann automatisch.
 
 ---
 
@@ -43,7 +42,7 @@ Im Agenten geht das auch direkt: Einstellungen (Zahnrad) → „KI-Anbieter & Ke
 ## 4. Key im Agenten eintragen
 
 1. Den Willhaben KI-Agenten starten.
-2. Das **Zahnrad rechts oben** anklicken (oder Strg+K, Hilfe → Einstellungen, links der Knopf „KI-Anbieter & Keys …“).
+2. Das **Zahnrad rechts oben** anklicken (oder Strg+K, links der Knopf „KI-Anbieter & Keys …“).
 3. Im Reiter **„KI-Anbieter & Keys“** ist **Google Gemini** schon gewählt. Im Bereich **„Keys für Google Gemini“** auf **„＋ Hinzufügen“** klicken.
 4. Einen Namen vergeben (z. B. „Privat“), den Key einfügen (Strg+V) und auf **„Testen“** klicken. Bei Erfolg auf **„Speichern“** klicken.
    Gespeichert wird der Key in `~/.config/willhaben-agent/keys.json` (Windows: `%APPDATA%\willhaben-agent\keys.json`), nur für deinen Benutzer lesbar.

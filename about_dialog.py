@@ -245,7 +245,7 @@ class AboutDialog(tk.Toplevel):
             ("Live-Ansicht", "Animation, Fortschritt, Protokoll, Anzeigen-Tabelle und Ergebnis in Echtzeit"),
             ("Berichte", "jeder Lauf als Bericht gespeichert; frühere Berichte im Reiter „Berichte“ ansehen"),
             ("Updates", "prüft GitHub beim Start, Update mit einem Klick, räumt selbst auf"),
-            ("Einstellungen", "alles in einem Fenster (Zahnrad, Hilfe oder Strg+K), mit Key-Anleitung je Anbieter"),
+            ("Einstellungen", "alles in einem Fenster (Zahnrad oder Strg+K), mit Key-Anleitung je Anbieter"),
             ("Modernes Design", "helles oder dunkles Erscheinungsbild (Einstellungen → Darstellung)"),
             ("Windows & Linux", "eigene Installer, Startmenü, Updates und Deinstallation"),
         ]
