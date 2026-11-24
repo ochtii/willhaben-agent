@@ -165,6 +165,22 @@ def remote_stand(timeout: float = 8) -> Stand:
     return Stand(sha, nummer, c.get("committer", {}).get("date", ""), (c.get("message") or "").split("\n")[0])
 
 
+def verlauf(anzahl: int = 12, timeout: float = 8) -> list[dict]:
+    """Die letzten Versionen auf GitHub: [{version, sha, datum, nachricht}], neueste zuerst."""
+    basis = basis_version()
+    r = _get(f"{API}/commits", timeout, params={"sha": BRANCH, "per_page": 1})
+    m = re.search(r'[?&]page=(\d+)>; rel="last"', r.headers.get("Link", ""))
+    gesamt = int(m.group(1)) if m else len(r.json())
+    r = _get(f"{API}/commits", timeout, params={"sha": BRANCH, "per_page": anzahl})
+    out = []
+    for i, c in enumerate(r.json()):
+        info = c.get("commit", {})
+        out.append({"version": f"{basis}.{gesamt - i}", "sha": c.get("sha", "")[:7],
+                    "datum": (info.get("committer", {}).get("date") or "")[:10],
+                    "nachricht": (info.get("message") or "").split("\n")[0]})
+    return out
+
+
 def pruefen(app_dir: Path = APP_DIR, timeout: float = 8) -> UpdateInfo:
     """Vergleicht den installierten Stand mit GitHub. Wirft keine Fehler (siehe .fehler)."""
     basis = basis_version(app_dir)

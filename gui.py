@@ -32,6 +32,7 @@ from keys import KeyStore, KIFehler, maskiert  # noqa: E402
 from keys_dialog import KeyManager, _zahl  # noqa: E402
 import updater  # noqa: E402
 from update_dialog import UpdateDialog  # noqa: E402
+from about_dialog import AboutDialog  # noqa: E402
 from providers import PROVIDER_TITEL  # noqa: E402
 from willhaben import CATEGORIES, Abgebrochen  # noqa: E402
 
@@ -538,9 +539,10 @@ class App:
         updater.neu_starten()
 
     def _ueber(self):
-        st = updater.lokaler_stand()
-        messagebox.showinfo(APP_TITLE, f"{APP_TITLE}\nVersion v{self.version} ({st.kurz})\n\n"
-                            f"{updater.REPO_URL}\n\nUpdates: Einstellungen → Nach Updates suchen …")
+        if getattr(self, "_about", None) is not None and self._about.winfo_exists():
+            self._about.lift()
+            return
+        self._about = AboutDialog(self.root, self.version, on_update=lambda: self.update_pruefen(manuell=True))
 
     def open_keys(self):
         if self.key_manager is not None and self.key_manager.winfo_exists():

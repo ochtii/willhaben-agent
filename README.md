@@ -97,6 +97,7 @@ Für jede andere Kategorie oder spezielle Filter: Suche im Browser auf willhaben
 | `keys.py` | Key-Speicher, Verbrauchszähler, automatischer Verteiler |
 | `keys_dialog.py` | Fenster „API-Keys & Limits“ |
 | `updater.py`, `update_dialog.py` | Update-Prüfung und -Installation über GitHub |
+| `about_dialog.py` | Fenster „Über“: Funktionen, Ablauf, Versionsverlauf, Entwickler & Links |
 | `VERSION` | Haupt-/Nebenversion (die letzte Stelle zählt automatisch die Commits) |
 | `settings.py` | gespeicherte Eingaben |
 | `install.sh` | Installer |
