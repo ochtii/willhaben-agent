@@ -32,6 +32,18 @@ eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
       --beschreibung "Uni & Office, leicht, guter Akku, mind. 16 GB RAM" --top 10
   ```
 
+## Updates
+
+- **Beim Start** prüft die App im Hintergrund auf GitHub, ob es eine neuere Version gibt. Wenn ja, zeigt sie Versionsnummern und Änderungen an: **Jetzt aktualisieren · Später · Diese Version überspringen**.
+- **Von Hand:** Einstellungen → **Nach Updates suchen …** Dort lässt sich auch die Prüfung beim Start abschalten.
+- **Terminal:** `./willhaben-agent-cli --version` bzw. `./willhaben-agent-cli --update`
+- **Versionsnummer** `1.0.N`: `1.0` steht in der Datei `VERSION` (für größere Sprünge von Hand ändern), **N ist die Anzahl der Commits auf `main`** und steigt bei jedem Push automatisch.
+- **So wird installiert:**
+  - Bei einem Git-Klon per `git pull`. Lokal geänderte Programmdateien werden nie überschrieben, das Update bricht dann mit Hinweis ab.
+  - Bei einer ZIP-Installation per Download von GitHub.
+  - Danach werden die Python-Pakete aktualisiert, und ein Neustart wird angeboten.
+  - Keys, Einstellungen und Ergebnisse bleiben erhalten.
+
 ## Das Fenster
 
 | Bereich | Inhalt |
@@ -84,5 +96,7 @@ Für jede andere Kategorie oder spezielle Filter: Suche im Browser auf willhaben
 | `providers.py` | Anbindung Gemini und Groq, Fehler- und Limit-Erkennung |
 | `keys.py` | Key-Speicher, Verbrauchszähler, automatischer Verteiler |
 | `keys_dialog.py` | Fenster „API-Keys & Limits“ |
+| `updater.py`, `update_dialog.py` | Update-Prüfung und -Installation über GitHub |
+| `VERSION` | Haupt-/Nebenversion (die letzte Stelle zählt automatisch die Commits) |
 | `settings.py` | gespeicherte Eingaben |
 | `install.sh` | Installer |

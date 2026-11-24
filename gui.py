@@ -30,6 +30,8 @@ import settings  # noqa: E402
 from pipeline import Auftrag, Ereignisse, run  # noqa: E402
 from keys import KeyStore, KIFehler, ANBIETER, maskiert  # noqa: E402
 from keys_dialog import KeyManager, _zahl  # noqa: E402
+import updater  # noqa: E402
+from update_dialog import UpdateDialog  # noqa: E402
 from providers import PROVIDER_TITEL  # noqa: E402
 from willhaben import CATEGORIES, Abgebrochen  # noqa: E402
 
@@ -108,7 +110,10 @@ class App:
         self.store = KeyStore()
         self.key_manager: KeyManager | None = None
 
-        root.title(APP_TITLE)
+        self.version = updater.version_text()
+        root.title(f"{APP_TITLE}  v{self.version}")
+        self.var_update_start = tk.BooleanVar(value=self.cfg.get("update_beim_start", True))
+        self.var_update_start.trace_add("write", lambda *a: self._update_option_speichern())
         root.geometry(self.cfg.get("geometry", "1280x820"))
         root.minsize(1000, 640)
         self._style()
@@ -117,6 +122,9 @@ class App:
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         root.after(100, self._poll)
         root.after(1000, self._ki_tick)
+        root.bind("<<NeustartNachUpdate>>", lambda e: self._neustart())
+        if self.var_update_start.get():
+            root.after(1500, lambda: self.update_pruefen(manuell=False))
         self._log("Bereit. Suchauftrag links ausfüllen und auf ▶ Start klicken.", "info")
         if not self.store.eintraege():
             self._log("Hinweis: Noch kein API-Key eingetragen → „API-Keys & Limits…“ (Gemini oder Groq, kostenlos).", "warn")
@@ -148,6 +156,9 @@ class App:
         m.add_command(label="API-Keys & Limits …", command=self.open_keys, accelerator="Strg+K")
         m.add_command(label="Ergebnis-Ordner öffnen", command=lambda: open_path(self._outdir()))
         m.add_separator()
+        m.add_command(label="Nach Updates suchen …", command=lambda: self.update_pruefen(manuell=True))
+        m.add_checkbutton(label="Beim Start nach Updates suchen", variable=self.var_update_start)
+        m.add_separator()
         m.add_command(label="Beenden", command=self.on_close)
         menubar.add_cascade(label="Einstellungen", menu=m)
         h = tk.Menu(menubar, tearoff=0)
@@ -155,6 +166,8 @@ class App:
             Path(__file__).resolve().parent / "ANLEITUNG-API-KEY.md"))
         h.add_command(label="Gemini-Key erstellen ↗", command=lambda: webbrowser.open("https://aistudio.google.com/apikey"))
         h.add_command(label="Groq-Key erstellen ↗", command=lambda: webbrowser.open("https://console.groq.com/keys"))
+        h.add_separator()
+        h.add_command(label="Über …", command=self._ueber)
         menubar.add_cascade(label="Hilfe", menu=h)
         self.root.configure(menu=menubar)
         self.root.bind_all("<Control-k>", lambda e: self.open_keys())
@@ -476,6 +489,60 @@ class App:
             self.stop.set()
             self.btn_stop.configure(state="disabled")
             self._log("Abbruch angefordert – wird nach dem aktuellen Schritt beendet …", "warn")
+
+    # ------------------------------------------------------------------ Updates
+    def update_pruefen(self, manuell: bool):
+        """Prüft im Hintergrund auf GitHub. Beim Start still, außer es gibt eine neue (nicht übersprungene) Version."""
+        if manuell:
+            self._log("Suche nach Updates …", "info")
+
+        def work():
+            info = updater.pruefen()
+            self.root.after(0, lambda: self._update_ergebnis(info, manuell))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _update_ergebnis(self, info, manuell: bool):
+        if info.fehler:
+            self._log(f"Update-Prüfung: {info.fehler}", "warn")
+            if not manuell:
+                return
+        elif info.neuer:
+            self._log(f"Neue Version verfügbar: v{info.version_remote} (installiert: v{info.version_lokal})", "ok")
+            if not manuell and self.cfg.get("update_uebersprungen") == info.version_remote:
+                return
+        else:
+            if info.version_lokal != self.version:      # Nummer erst jetzt bekannt (z.B. ZIP-Installation)
+                self.version = info.version_lokal
+                self.root.title(f"{APP_TITLE}  v{self.version}")
+            if manuell:
+                self._log(f"Neueste Version installiert (v{info.version_lokal}).", "ok")
+            else:
+                return
+        UpdateDialog(self.root, info, on_skip=self._update_ueberspringen,
+                     darf_installieren=lambda: not (self.worker and self.worker.is_alive()),
+                     beim_start_var=self.var_update_start)
+
+    def _update_ueberspringen(self, version: str):
+        self.cfg["update_uebersprungen"] = version
+        self._save_form()
+        self._log(f"Version v{version} wird übersprungen (manuell weiterhin installierbar).", "info")
+
+    def _update_option_speichern(self):
+        self.cfg["update_beim_start"] = bool(self.var_update_start.get())
+        try:
+            settings.save(self.cfg)
+        except Exception:
+            pass
+
+    def _neustart(self):
+        self._save_form()
+        self.root.destroy()
+        updater.neu_starten()
+
+    def _ueber(self):
+        st = updater.lokaler_stand()
+        messagebox.showinfo(APP_TITLE, f"{APP_TITLE}\nVersion v{self.version} ({st.kurz})\n\n"
+                            f"{updater.REPO_URL}\n\nUpdates: Einstellungen → Nach Updates suchen …")
 
     def open_keys(self):
         if self.key_manager is not None and self.key_manager.winfo_exists():

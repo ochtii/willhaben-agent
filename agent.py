@@ -68,8 +68,33 @@ def main() -> int:
     p.add_argument("--ausweich-gemini", default="", help="Gemini-Ausweichmodell bei Überlastung (Standard: gemini-3.5-flash)")
     p.add_argument("--ausgabe", default=settings.DEFAULT_OUTPUT, help="Ausgabeordner")
     p.add_argument("--keys", action="store_true", help="Keys, Limits und Verbrauch anzeigen und beenden")
+    p.add_argument("--version", action="store_true", help="Installierte Version anzeigen")
+    p.add_argument("--update", action="store_true", help="Auf GitHub nach einer neuen Version suchen und installieren")
     p.add_argument("--key-hinzufuegen", nargs=3, metavar=("ANBIETER", "NAME", "KEY"), help="Key speichern und beenden")
     args = p.parse_args()
+
+    if args.version or args.update:
+        import updater
+        info = updater.pruefen()
+        print(f"Installiert: v{info.version_lokal} ({info.lokal.kurz})")
+        if info.fehler:
+            print(f"Update-Prüfung nicht möglich: {info.fehler}")
+            return 1 if args.update else 0
+        print(f"GitHub:      v{info.version_remote} ({info.remote.kurz})")
+        if not info.neuer:
+            print("✔ Neueste Version installiert.")
+            return 0
+        print("Neuere Version verfügbar. Änderungen:\n  - " + "\n  - ".join(info.aenderungen[:20]))
+        if args.update:
+            try:
+                v = updater.installieren(info)
+                print(f"✔ Update auf v{v} installiert.")
+            except updater.UpdateFehler as e:
+                print(f"❌ {e}")
+                return 1
+        else:
+            print("Installieren mit:  --update")
+        return 0
 
     store = KeyStore()
     if args.key_hinzufuegen:

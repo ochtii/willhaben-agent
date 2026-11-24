@@ -90,6 +90,9 @@ if [ -d "$DESKTOP" ]; then
 fi
 
 echo
+.venv/bin/python agent.py --version 2>/dev/null || true
+echo
 echo "Fertig! Starten über:"
 echo "  • Startmenü / Schreibtisch: „Willhaben KI-Agent“"
 echo "  • Terminal:  $DIR/willhaben-agent"
+echo "Updates: beim Start automatisch, oder Einstellungen → „Nach Updates suchen …“ (Terminal: ./willhaben-agent-cli --update)"

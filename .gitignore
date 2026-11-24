@@ -20,3 +20,6 @@ beispiel-bericht*.md
 keys.json
 config.json
 .env
+
+# Update-Status (welche Version installiert ist)
+.installed_version.json
