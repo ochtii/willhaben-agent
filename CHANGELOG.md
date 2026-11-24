@@ -4,6 +4,16 @@ Die Versionsnummer lautet `<VERSION>.<N>`: `VERSION` steht in der gleichnamigen 
 **N** zählt die Commits seit der letzten Änderung dieser Datei und steigt mit jedem Push automatisch.
 Die App zeigt diesen Verlauf unter Hilfe → Über → „Neuigkeiten“.
 
+## 1.2.0 – 2026-11-24
+- Neu: Freie Wahl des KI-Anbieters – Google Gemini (Standard), OpenAI/ChatGPT, Anthropic Claude, Perplexity, Mistral, DeepSeek, xAI Grok, Groq, OpenRouter, Together AI oder eine eigene OpenAI-kompatible Adresse
+- Je Anbieter mehrere Keys, Modell und Ausweichmodell aus der Liste deines Keys (passt sich automatisch an, wenn ein Modell fehlt)
+- Marktrecherche im Web jetzt auch mit Claude, ChatGPT und Perplexity; Anbieter ohne Websuche lassen die Recherche automatisch von einem anderen Anbieter mit Key erledigen
+- Neues Einstellungsfenster: Zahnrad rechts oben (oder Hilfe → Einstellungen, Strg+K) mit den Reitern „KI-Anbieter & Keys“, „Darstellung“ und „Allgemein & Updates“
+- Das Menü „Einstellungen“ und die drei Knöpfe in der Kopfleiste sind dafür entfallen
+- Ergebnis-Ordner kann jetzt in den Einstellungen geändert werden
+- Keys aus Umgebungsvariablen für alle Anbieter (z. B. OPENAI_API_KEY, ANTHROPIC_API_KEY, PERPLEXITY_API_KEY)
+- Behoben: Schlägt ein Update fehl, wird die Fehlermeldung jetzt richtig angezeigt
+
 ## 1.1.1 – 2026-11-24
 - Neu: Windows-Installer – Doppelklick auf „install-windows.cmd“ installiert die App unter Windows 10/11 (Startmenü, Desktop, „Apps & Features“ mit Deinstallation)
 - Fehlt Python, bietet der Installer die automatische Installation per winget an

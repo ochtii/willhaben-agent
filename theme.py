@@ -141,13 +141,13 @@ class Stepper(tk.Canvas):
 
 
 class Kopfleiste(tk.Canvas):
-    """Farbverlauf-Kopfzeile mit Icon, Titel, Version und Schnellzugriffen rechts."""
+    """Farbverlauf-Kopfzeile mit Icon, Titel, Version und Zahnrad (Einstellungen) rechts."""
 
     def __init__(self, master, titel: str, untertitel: str, version: str, icon: tk.PhotoImage | None,
-                 aktionen: list[tuple[str, callable]]):
+                 einstellungen=None):
         super().__init__(master, height=64, highlightthickness=0, bd=0)
         self.titel, self.untertitel, self.version, self.icon = titel, untertitel, version, icon
-        self.aktionen = aktionen
+        self.einstellungen = einstellungen
         self.bind("<Configure>", lambda e: self.zeichnen())
 
     def version_setzen(self, v: str):
@@ -174,17 +174,38 @@ class Kopfleiste(tk.Canvas):
         bx = self.bbox(vid)
         self._pille(bx[0] - 8, bx[1] - 3, bx[2] + 8, bx[3] + 3, "#ffffff" if MODUS == "hell" else "#cfe4ff")
         self.tag_raise(vid)
-        rx = w - 16
-        for text, cmd in reversed(self.aktionen):
-            t = self.create_text(rx, h / 2, anchor="e", text=text, fill="#ffffff", font=(FONT, 10, "bold"))
-            x1, y1, x2_, y2 = self.bbox(t)
-            r = self.create_rectangle(x1 - 10, y1 - 6, x2_ + 10, y2 + 6, outline="#ffffff", width=1,
-                                      fill="")
-            for item in (t, r):
-                self.tag_bind(item, "<Button-1>", lambda e, c=cmd: c())
-                self.tag_bind(item, "<Enter>", lambda e, rr=r: (self.itemconfigure(rr, width=2), self.configure(cursor="hand2")))
-                self.tag_bind(item, "<Leave>", lambda e, rr=r: (self.itemconfigure(rr, width=1), self.configure(cursor="")))
-            rx = x1 - 22
+        if self.einstellungen is not None:
+            self._zahnrad(w - 36, h / 2, mix(a, b, 1.0))
+
+    def _zahnrad(self, cx: float, cy: float, grund: str):
+        """Zahnrad als Vektorgrafik (sieht auf jedem System gleich aus) mit runder Hover-Fläche."""
+        import math
+        hover = self.create_oval(cx - 22, cy - 22, cx + 22, cy + 22, fill=mix(grund, "#ffffff", 0.22), outline="",
+                                 state="hidden")
+        zaehne, r_aussen, r_innen = 8, 14.5, 10.5
+        punkte = []
+        for i in range(zaehne * 4):
+            winkel = 2 * math.pi * i / (zaehne * 4) - math.pi / (zaehne * 4)
+            r = r_aussen if i % 4 in (1, 2) else r_innen
+            punkte += [cx + r * math.cos(winkel), cy + r * math.sin(winkel)]
+        rad = self.create_polygon(punkte, fill="#ffffff", outline="#ffffff", joinstyle="round", width=1.5)
+        loch = self.create_oval(cx - 4.6, cy - 4.6, cx + 4.6, cy + 4.6, fill=grund, outline="")
+        teile = (hover, rad, loch)
+
+        def rein(_e):
+            self.itemconfigure(hover, state="normal")
+            self.itemconfigure(loch, fill=mix(grund, "#ffffff", 0.22))
+            self.configure(cursor="hand2")
+
+        def raus(_e):
+            self.itemconfigure(hover, state="hidden")
+            self.itemconfigure(loch, fill=grund)
+            self.configure(cursor="")
+        for t in teile:
+            self.tag_bind(t, "<Button-1>", lambda e: self.einstellungen())
+            self.tag_bind(t, "<Enter>", rein)
+            self.tag_bind(t, "<Leave>", raus)
+        self.zahnrad_bbox = (cx - 22, cy - 22, cx + 22, cy + 22)
 
     def _pille(self, x1, y1, x2, y2, farbe):
         r = (y2 - y1) / 2

@@ -101,9 +101,11 @@ class UpdateDialog(tk.Toplevel):
                 version = updater.installieren(self.info, log=log)
                 self.after(0, lambda: self._fertig(version))
             except updater.UpdateFehler as e:
-                self.after(0, lambda: self._fehler(str(e)))
+                text = str(e)
+                self.after(0, lambda: self._fehler(text))
             except Exception as e:
-                self.after(0, lambda: self._fehler(f"{type(e).__name__}: {e}"))
+                text = f"{type(e).__name__}: {e}"
+                self.after(0, lambda: self._fehler(text))
         threading.Thread(target=work, daemon=True).start()
 
     def _fertig(self, version: str):

@@ -29,10 +29,15 @@
   sonst löscht das automatische Aufräumen sie.
 - Beide Installer (`install.sh`, `install.ps1`) bei Änderungen am Installationsablauf gemeinsam anpassen.
 
+## KI-Anbieter
+- Neue Anbieter als Klasse in `providers.py` (OpenAI-kompatible: Unterklasse von `OpenAIKompatibel`) und in
+  `PROVIDER_KLASSEN` eintragen; Fehler immer als `ProviderFehler` mit passender `art` melden.
+- Einstellungen gehören ins Einstellungsfenster (`einstellungen_dialog.py`), nicht in ein Menü.
+
 ## Design
 - Farben nie fest eintragen, sondern aus `theme.P` (Hell/Dunkel-Palette) nehmen.
 - Oberfläche: Tkinter + sv-ttk; keine Farb-Emojis in Tk-Widgets (siehe `tk_safe` in `gui.py`).
 
 ## Prüfen vor dem Push
-- `python -c "import gui, agent, keys, keys_dialog, pipeline, rating, providers, updater, about_dialog, bezirk_dialog, theme, plattform"`
+- `python -c "import gui, agent, keys, keys_dialog, pipeline, rating, providers, updater, about_dialog, bezirk_dialog, einstellungen_dialog, theme, plattform"`
 - GUI in Hell und Dunkel unter `xvfb-run` ansehen, wenn sich die Oberfläche ändert.

@@ -1,6 +1,6 @@
 """API-Key- und Limit-Manager.
 
-KeyStore  – speichert beliebig viele Google-Gemini-Keys samt Limits und Verbrauch
+KeyStore  – speichert beliebig viele Keys je KI-Anbieter samt Limits und Verbrauch
             (keys.json im Konfigurationsordner, nur für den eigenen Benutzer lesbar).
 Verteiler – wählt für jede KI-Anfrage Key und Modell: Keys gleichmäßig oder nacheinander,
             respektiert Minuten-/Tageslimits, wechselt bei Limit/Fehler automatisch zum nächsten
@@ -18,13 +18,14 @@ from collections import deque
 from datetime import datetime
 from typing import Callable
 
-from providers import PROVIDER_KLASSEN, PROVIDER_TITEL, ProviderFehler
+import providers
+from providers import PROVIDER_KLASSEN, PROVIDER_TITEL, STANDARD_ANBIETER, ProviderFehler
 import settings
 
 KEYS_FILE = settings.CONFIG_DIR / "keys.json"
 UEBERLAST_PAUSE = 180          # Sekunden Pause für ein Modell nach "503 überlastet"
-ANBIETER = ["gemini"]
-ENV_VARS = {"gemini": ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEYS"]}
+ANBIETER = list(PROVIDER_KLASSEN)
+ENV_VARS = {n: list(getattr(k, "env_vars", [])) for n, k in PROVIDER_KLASSEN.items()}
 LIMIT_FELDER = [("rpm", "Anfragen/Minute"), ("rpd", "Anfragen/Tag"), ("tpm", "Token/Minute"), ("tpd", "Token/Tag")]
 
 
@@ -71,7 +72,7 @@ class KeyStore:
                 data = json.loads(self.path.read_text())
             except Exception:
                 data = {}
-            # nur noch Google Gemini: Einträge anderer (früherer) Anbieter verwerfen
+            # Einträge unbekannter (früherer) Anbieter verwerfen
             self.keys = [k for k in data.get("keys", []) if k.get("provider") in PROVIDER_KLASSEN]
             ids = {k["id"] for k in self.keys}
             self.usage = {kid: u for kid, u in data.get("usage", {}).items() if kid in ids or kid.startswith("env-")}
@@ -83,9 +84,12 @@ class KeyStore:
                 if not modelle.get(p) or modelle[p] in ("auto", "gemini-flash-latest") \
                         or not self.optionen.get("v2_modelle"):
                     modelle[p] = k.standard_modell
-                if not ausweich.get(p) or not self.optionen.get("v2_modelle"):
+                if p not in ausweich or not self.optionen.get("v2_modelle"):
                     ausweich[p] = k.ausweich_modell
             self.optionen.update(modelle=modelle, ausweich=ausweich, v2_modelle=True)
+            if self.optionen.get("anbieter") not in PROVIDER_KLASSEN:
+                self.optionen["anbieter"] = STANDARD_ANBIETER
+            providers.EigenerProvider.basis_url = self.optionen.get("eigene_url", "")
             self._legacy_import()
             self._env_keys()
 
@@ -319,10 +323,11 @@ class Verteiler:
     def __init__(self, store: KeyStore, modelle: dict | None = None,
                  verteilung: str | None = None, log: Callable[[str], None] = print,
                  stop: threading.Event | None = None, on_update: Callable[[], None] | None = None,
-                 ausweich: dict | None = None):
+                 ausweich: dict | None = None, anbieter: str | None = None):
         self.store = store
         o = store.optionen
-        self.reihenfolge = list(ANBIETER)            # nur Google Gemini
+        gewaehlt = anbieter if anbieter in PROVIDER_KLASSEN else o.get("anbieter")
+        self.reihenfolge = [gewaehlt or STANDARD_ANBIETER]   # der gewählte KI-Anbieter
         self.modelle = {**o.get("modelle", {}), **(modelle or {})}
         self.ausweich = {**{p: getattr(k, "ausweich_modell", "") for p, k in PROVIDER_KLASSEN.items()},
                          **o.get("ausweich", {}), **(ausweich or {})}
@@ -431,7 +436,7 @@ class Verteiler:
     def _waehle(self, est: float, nur_recherche: bool = False):
         """-> (anbieter, key-eintrag, wartezeit) oder None."""
         kandidaten = []
-        for rang, n in enumerate(self.reihenfolge):
+        for rang, n in enumerate(self._recherche_reihe() if nur_recherche else self.reihenfolge):
             if nur_recherche and not getattr(PROVIDER_KLASSEN[n], "kann_recherche", False):
                 continue
             keys = self.keys_bereit(n)
@@ -460,6 +465,9 @@ class Verteiler:
         for m in kette:
             if m and m not in out:
                 out.append(m)
+        if not out:
+            raise KIFehler(f"Für {PROVIDER_TITEL[name]} ist kein Modell gewählt – in den Einstellungen "
+                           "(Zahnrad rechts oben) unter „KI-Anbieter“ ein Modell auswählen.")
         return out
 
     def _nutzbar(self, name: str, e: dict, m: str) -> bool:
@@ -487,7 +495,7 @@ class Verteiler:
         kette = self._kette(name, e)
         if all((name, m) in self._kaputt for m in kette):
             raise KIFehler(f"Weder „{kette[0]}“ noch das Ausweichmodell sind für deinen Key verfügbar. "
-                           "Unter „API-Keys & Limits“ → „KI-Modell“ verfügbare Modelle wählen.")
+                           "In den Einstellungen (Zahnrad) unter „KI-Anbieter“ verfügbare Modelle wählen.")
         gesperrt = self.store.nutzung(e["id"]).get("modell_gesperrt", {})
         pausen = dict(self.store.pausierte_modelle(name))
         nur_pause = [pausen[m] for m in kette if m in pausen and gesperrt.get(m, 0) <= now and (name, m) not in self._kaputt]
@@ -505,17 +513,22 @@ class Verteiler:
             for e in self.store.eintraege(n):
                 teile.append(f"{PROVIDER_TITEL[n]} „{e['label']}“: {self.store.status_text(e)}")
         if not teile:
-            return ("Kein API-Key eingetragen. Unter „API-Keys & Limits“ mindestens einen Google-Gemini-Key "
-                    "hinzufügen (Anleitung: Hilfe → „Anleitung: API-Key holen“).")
+            n = self.reihenfolge[0]
+            return (f"Kein API-Key für {PROVIDER_TITEL[n]} eingetragen. In den Einstellungen (Zahnrad rechts oben) "
+                    "mindestens einen Key hinzufügen (Anleitung: Hilfe → „Anleitung: API-Key holen“).")
         return "Kein Key mehr verfügbar – alle Limits erreicht oder Keys ungültig:\n  " + "\n  ".join(teile)
 
     # -- Anfrage
+    def _recherche_reihe(self) -> list[str]:
+        """Für die Websuche zuerst der gewählte Anbieter, sonst ein anderer mit Suchfunktion und Key."""
+        return self.reihenfolge + [n for n in PROVIDER_KLASSEN if n not in self.reihenfolge]
+
     def kann_recherche(self) -> bool:
         return any(getattr(PROVIDER_KLASSEN[n], "kann_recherche", False) and self.keys_bereit(n)
-                   for n in self.reihenfolge)
+                   for n in self._recherche_reihe())
 
     def recherche(self, prompt: str):
-        """Websuche (nur Anbieter mit Suchfunktion, d.h. Gemini). -> Antwort(parsed=Text, info={'quellen': ...})"""
+        """Websuche (Anbieter mit Suchfunktion). -> Antwort(parsed=Text, info={'quellen': ...})"""
         return self.generate(prompt, None, heavy=True, recherche=True)
 
     def generate(self, prompt: str, schema, heavy: bool = False, recherche: bool = False):

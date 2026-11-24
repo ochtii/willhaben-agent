@@ -32,9 +32,10 @@ class Auftrag:
     max_anzeigen: int | None = None
     ohne_details: bool = False
     nur_scrapen: bool = False
-    marktrecherche: bool = True               # aktuelle Marktlage per Google-Suche (Gemini) einbeziehen
-    modelle: dict | None = None               # {"gemini": "gemini-3.5-flash"}; None = aus den Einstellungen
+    marktrecherche: bool = True               # aktuelle Marktlage per Websuche einbeziehen
+    modelle: dict | None = None               # {"anbieter": "modell"}; None = aus den Einstellungen
     verteilung: str | None = None             # "gleichmaessig" | "nacheinander"
+    anbieter: str | None = None               # KI-Anbieter für diesen Lauf; None = aus den Einstellungen
     ausweich: dict | None = None              # Ausweichmodelle bei Überlastung, z.B. {"gemini": "gemini-3.5-flash"}
     paketgroesse: int | None = None           # None = Standard (30 Anzeigen pro KI-Anfrage)
     ausgabe: str = "ergebnisse"
@@ -125,7 +126,7 @@ def render_md(a: Auftrag, erg: Ergebnis, by_id, total_found, scored, stats, kina
         lines += ["**willhaben-Preise der passenden Angebote (Median):** "
                   + " · ".join(f"{k}: {v['median_eur']} € ({v['anzahl']}×)" for k, v in mp.items()), ""]
     if marktlage:
-        lines += ["## Aktuelle Marktlage (Google-Suche)", "", marktlage, ""]
+        lines += ["## Aktuelle Marktlage (Websuche)", "", marktlage, ""]
         if quellen:
             lines += ["Quellen: " + " · ".join(f"[{t}]({u})" for t, u in quellen), ""]
     if erg.tipp:
@@ -155,7 +156,7 @@ def run(a: Auftrag, ev: Ereignisse | None = None, stop: threading.Event | None =
     if not a.nur_scrapen:
         store = store or KeyStore()
         backend = Verteiler(store, a.modelle, a.verteilung, log=log, stop=stop, on_update=ev.keys,
-                            ausweich=a.ausweich)
+                            ausweich=a.ausweich, anbieter=a.anbieter)
         if not backend.anbieter_jetzt():
             from keys import KIFehler
             raise KIFehler(backend._zusammenfassung())
@@ -226,7 +227,7 @@ def run(a: Auftrag, ev: Ereignisse | None = None, stop: threading.Event | None =
         log(f"⚠ Limit: bewerte nur {len(to_score)} von {len(listings)} Anzeigen")
 
     if a.marktrecherche:
-        log("🌐 Marktrecherche: aktuelle Preise & Trends per Google-Suche …")
+        log("🌐 Marktrecherche: aktuelle Preise & Trends per Websuche …")
         ev.phase("KI-Bewertung", 0, len(to_score))
         text = bewerter.marktrecherche(a.suche, a.kategorie if not a.url else "", a.beschreibung, a.von, a.bis)
         if text:

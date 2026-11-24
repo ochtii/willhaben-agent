@@ -4,7 +4,7 @@ Stufe 1 (alle Anzeigen, in Paketen): Specs/Zustand extrahieren, Relevanz prüfen
          Leistung und Preis/Leistung bewerten, Warnsignale markieren.
 Stufe 2 (die besten Kandidaten): Gesamtvergleich -> Top-N mit Vor-/Nachteilen und Fazit.
 
-Welcher Gemini-Key und welches Modell verwendet wird, entscheidet der Verteiler in keys.py.
+Welcher Anbieter, Key und welches Modell verwendet wird, entscheidet der Verteiler in keys.py.
 """
 
 from __future__ import annotations
@@ -98,19 +98,20 @@ class Bewerter:
     def _krit(self, wunsch, von, bis) -> str:
         k = _criteria(wunsch, von, bis)
         if self.marktlage:
-            k += ("\n<aktuelle_marktlage quelle=\"Google-Suche, " + date.today().strftime("%d.%m.%Y") + "\">\n"
+            k += ("\n<aktuelle_marktlage quelle=\"Websuche, " + date.today().strftime("%d.%m.%Y") + "\">\n"
                   + self.marktlage + "\n</aktuelle_marktlage>\n"
                   "Nutze diese aktuelle Marktlage (statt veraltetem Wissen) für Preis/Leistung und Einordnung.")
         return k
 
     def marktrecherche(self, suche: str, kategorie: str, wunsch: str, von, bis) -> str:
-        """Aktuelle Marktlage per Google-Suche (nur Gemini). Gibt den Text zurück ('' wenn nicht möglich)."""
+        """Aktuelle Marktlage per Websuche (Gemini, Claude, ChatGPT oder Perplexity). Gibt den Text zurück ('' wenn nicht möglich)."""
         if not getattr(self.backend, "kann_recherche", lambda: False)():
-            self.log("  (Marktrecherche übersprungen – braucht einen Gemini-Key)")
+            self.log("  (Marktrecherche übersprungen – braucht einen Key eines Anbieters mit Websuche: "
+                     "Google Gemini, Claude, ChatGPT oder Perplexity)")
             return ""
         produkt = " ".join(x for x in (suche, kategorie) if x) or "Gebrauchtware"
         prompt = (
-            f"Heute ist der {date.today().strftime('%d.%m.%Y')}. Recherchiere per Google-Suche die AKTUELLE Marktlage in "
+            f"Heute ist der {date.today().strftime('%d.%m.%Y')}. Recherchiere per Websuche die AKTUELLE Marktlage in "
             f"Österreich für gebrauchte {produkt}.\nKäuferwunsch: {wunsch}\nBudget: {von or 0}–{bis or 'offen'} €\n\n"
             "Liefere kompakt (max. 250 Wörter, Stichpunkte):\n"
             "1. Welche Modelle/Ausstattungsklassen bekommt man aktuell gebraucht in diesem Budget, mit typischen "
@@ -157,7 +158,7 @@ class Bewerter:
     def score(self, listings: list[Listing], wunsch: str, price_from, price_to,
               batch_size: int | None = None, desc_chars: int | None = None,
               on_batch: Callable[[int, int, list[Bewertung]], None] | None = None) -> dict[str, Bewertung]:
-        """Paketgröße und Textlänge kommen aus der Anbieter-Konfiguration (providers.GeminiProvider)."""
+        """Paketgröße und Textlänge kommen aus der Anbieter-Konfiguration (providers.*Provider)."""
         crit = self._krit(wunsch, price_from, price_to)
         out: dict[str, Bewertung] = {}
         i, n = 0, 0

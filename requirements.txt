@@ -2,5 +2,4 @@ requests>=2.31
 pydantic>=2
 google-genai>=1.0
 sv-ttk>=2.6
-# optional, nur für --anbieter claude:
-# anthropic>=2.13
+anthropic>=2.13

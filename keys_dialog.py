@@ -1,4 +1,5 @@
-"""Einstellungsfenster: API-Keys & Limits (mehrere Google-Gemini-Keys, Modellwahl, Verbrauch live)."""
+"""Reiter „KI-Anbieter & Keys“ im Einstellungsfenster: Anbieterwahl, Modell + Ausweichmodell, mehrere Keys je
+Anbieter mit Limits und Verbrauch (live)."""
 
 from __future__ import annotations
 
@@ -12,11 +13,11 @@ import theme
 from theme import P
 
 from keys import KeyStore, LIMIT_FELDER, maskiert, uhrzeit
-from providers import PROVIDER_KLASSEN, PROVIDER_TITEL, ProviderFehler
+from providers import PROVIDER_KLASSEN, PROVIDER_TITEL, STANDARD_ANBIETER, ProviderFehler
 
-PROV = "gemini"                       # einziger Anbieter
+KEIN_AUSWEICH = "(kein Ausweichmodell)"
 HINWEIS_KONTEN = ("Hinweis: Mehrere eigene Konten nur zum Vervielfachen der Gratis-Limits verstoßen meist gegen die "
-                  "Nutzungsbedingungen von Google und können zur Sperre aller beteiligten Konten führen.")
+                  "Nutzungsbedingungen der Anbieter und können zur Sperre aller beteiligten Konten führen.")
 
 
 def _zahl(n) -> str:
@@ -68,6 +69,8 @@ class KeyDialog(tk.Toplevel):
         link = ttk.Label(f, text=f"→ Key bei {PROVIDER_TITEL[provider]} erstellen", foreground=P["accent"], cursor="hand2")
         link.grid(row=4, column=0, columnspan=4, sticky="w", pady=(2, 8))
         link.bind("<Button-1>", lambda e: webbrowser.open(PROVIDER_KLASSEN[provider].key_url))
+        if not env and not eintrag:
+            self.after(100, lambda: self.ent_key.focus_set())
 
         lf = ttk.LabelFrame(f, text="Limits dieses Keys (leer = automatisch)", padding=8)
         lf.grid(row=5, column=0, columnspan=4, sticky="ew")
@@ -80,11 +83,15 @@ class KeyDialog(tk.Toplevel):
             hint = f"Annahme: {_zahl(std.get(feld))}" if std.get(feld) else "keine Annahme"
             ttk.Label(lf, text=hint, foreground=P["muted"]).grid(row=i, column=2, sticky="w")
             self.lim_vars[feld] = v
-        quelle = "Die echten Werte stehen in AI Studio unter „Rate limits“."
+        quelle = ("Die echten Werte stehen in AI Studio unter „Rate limits“." if provider == "gemini" else
+                  "Die echten Werte stehen in der Konsole des Anbieters (meist nur im Gratis-Tarif nötig).")
         ttk.Label(lf, text=quelle, foreground=P["muted"], wraplength=360).grid(row=4, column=0, columnspan=3, sticky="w", pady=(4, 0))
 
         self.lbl_test = ttk.Label(f, text="", wraplength=380)
         self.lbl_test.grid(row=6, column=0, columnspan=4, sticky="w", pady=(8, 0))
+        if not eintrag and store.eintraege(provider):
+            ttk.Label(f, text=HINWEIS_KONTEN, foreground=P["warn"], wraplength=380, justify="left").grid(
+                row=8, column=0, columnspan=4, sticky="w", pady=(10, 0))
         bf = ttk.Frame(f)
         bf.grid(row=7, column=0, columnspan=4, sticky="ew", pady=(10, 0))
         ttk.Button(bf, text="Testen", command=self.testen).pack(side="left")
@@ -149,119 +156,167 @@ class KeyDialog(tk.Toplevel):
         threading.Thread(target=work, daemon=True).start()
 
 
-class KeyManager(tk.Toplevel):
-    """Übersicht aller Keys mit Limits und Verbrauch (aktualisiert sich jede Sekunde)."""
+
+
+class KIBereich(ttk.Frame):
+    """Anbieter, Modell + Ausweichmodell und alle Keys des Anbieters mit Limits und Verbrauch
+    (aktualisiert sich jede Sekunde)."""
 
     def __init__(self, master, store: KeyStore, on_change=None):
-        super().__init__(master)
+        super().__init__(master, padding=12)
         self.store, self.on_change = store, on_change or (lambda: None)
-        self.title("API-Keys & Limits")
-        self.geometry("1180x640")
-        self.minsize(940, 520)
-        self.transient(master)
-        main = ttk.Frame(self, padding=12)
-        main.pack(fill="both", expand=True)
+        self.prov = store.optionen.get("anbieter") or STANDARD_ANBIETER
+        self._titel_zu_name = {t: n for n, t in PROVIDER_TITEL.items()}
+        self._lade_nr = 0
 
-        unten = ttk.Frame(main)
-        unten.pack(side="bottom", fill="x", pady=(8, 0))
-        ttk.Button(unten, text="Schließen", command=self.close).pack(side="right")
-        ttk.Label(unten, text=HINWEIS_KONTEN, foreground=P["warn"], wraplength=900, justify="left").pack(side="left")
-        ttk.Label(main, text="API-Keys & Limits", font=("TkDefaultFont", 14, "bold")).pack(anchor="w")
-        ttk.Label(main, text="Google Gemini – mehrere Keys möglich. Der Agent verteilt die Anfragen automatisch auf die "
-                             "Keys und wechselt bei erreichtem Limit zum nächsten Key.",
-                  foreground=P["muted"]).pack(anchor="w", pady=(0, 8))
-        kl = PROVIDER_KLASSEN[PROV]
-        self.trees, self.summary = {}, {}
+        # --- Anbieter
+        af = ttk.LabelFrame(self, text="KI-Anbieter", padding=8)
+        af.pack(fill="x")
+        ttk.Label(af, text="Anbieter").grid(row=0, column=0, sticky="w")
+        self.var_prov = tk.StringVar(value=PROVIDER_TITEL[self.prov])
+        self.cb_prov = ttk.Combobox(af, textvariable=self.var_prov, width=36, state="readonly",
+                                    values=list(PROVIDER_TITEL.values()), height=12)
+        self.cb_prov.grid(row=0, column=1, padx=(6, 16), sticky="w")
+        self.cb_prov.bind("<<ComboboxSelected>>", lambda e: self._anbieter_wechseln())
+        self.lbl_prov_keys = ttk.Label(af, text="", foreground=P["muted"])
+        self.lbl_prov_keys.grid(row=0, column=2, sticky="w")
+        af.columnconfigure(2, weight=1)
+        self.lbl_hinweis = ttk.Label(af, text="", foreground=P["muted"], wraplength=980, justify="left")
+        self.lbl_hinweis.grid(row=1, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        self.frm_url = ttk.Frame(af)
+        ttk.Label(self.frm_url, text="Adresse (Basis-URL)").pack(side="left")
+        self.var_url = tk.StringVar(value=store.optionen.get("eigene_url", ""))
+        ent = ttk.Entry(self.frm_url, textvariable=self.var_url, width=56)
+        ent.pack(side="left", padx=6)
+        ent.bind("<FocusOut>", lambda e: self._optionen_speichern())
+        ent.bind("<Return>", lambda e: (self._optionen_speichern(), self._modelle_laden(still=True)))
+        ttk.Label(self.frm_url, text="z.B. https://api.fireworks.ai/inference/v1", foreground=P["muted"]).pack(
+            side="left")
 
         # --- Modellwahl
-        mf = ttk.LabelFrame(main, text="KI-Modell (Google Gemini)", padding=8)
-        mf.pack(fill="x")
+        self.mf = ttk.LabelFrame(self, text="KI-Modell", padding=8)
+        self.mf.pack(fill="x", pady=(8, 0))
+        mf = self.mf
         ttk.Label(mf, text="Modell").grid(row=0, column=0, sticky="w")
-        self.var_modell = tk.StringVar(value=store.optionen["modelle"].get(PROV, kl.standard_modell))
-        self.cb_modell = ttk.Combobox(mf, textvariable=self.var_modell, width=30, state="readonly",
-                                      values=[self.var_modell.get()])
+        self.var_modell = tk.StringVar()
+        self.cb_modell = ttk.Combobox(mf, textvariable=self.var_modell, width=28, height=16)
         self.cb_modell.grid(row=0, column=1, padx=(6, 16), sticky="w")
         ttk.Label(mf, text="Ausweichmodell").grid(row=0, column=2, sticky="w")
-        self.var_ausweich = tk.StringVar(value=store.optionen.get("ausweich", {}).get(PROV, kl.ausweich_modell))
-        self.cb_ausweich = ttk.Combobox(mf, textvariable=self.var_ausweich, width=30, state="readonly",
-                                        values=[self.var_ausweich.get()])
+        self.var_ausweich = tk.StringVar()
+        self.cb_ausweich = ttk.Combobox(mf, textvariable=self.var_ausweich, width=28, height=16)
         self.cb_ausweich.grid(row=0, column=3, padx=(6, 16), sticky="w")
         for cb in (self.cb_modell, self.cb_ausweich):
             cb.bind("<<ComboboxSelected>>", lambda e: self._optionen_speichern())
+            cb.bind("<FocusOut>", lambda e: self._optionen_speichern())
+            cb.bind("<Return>", lambda e: self._optionen_speichern())
         ttk.Button(mf, text="Modellliste aktualisieren", command=self._modelle_laden).grid(row=0, column=4, sticky="w")
-        self.lbl_modelle = ttk.Label(mf, text="", foreground=P["muted"], wraplength=1050, justify="left")
+        self.lbl_modelle = ttk.Label(mf, text="", foreground=P["muted"], wraplength=980, justify="left")
         self.lbl_modelle.grid(row=1, column=0, columnspan=5, sticky="w", pady=(6, 0))
-        ttk.Label(mf, text="Das Ausweichmodell wird nur verwendet, wenn das gewählte Modell überlastet ist, nicht "
-                           "verfügbar ist oder sein Tageskontingent aufgebraucht hat. Andere Modelle werden nie "
-                           "automatisch verwendet.", foreground=P["muted"], wraplength=1050, justify="left").grid(
+        ttk.Label(mf, text="Das Ausweichmodell springt nur ein, wenn das gewählte Modell überlastet, nicht verfügbar "
+                           "oder aufgebraucht ist – andere Modelle werden nie automatisch verwendet.",
+                  foreground=P["muted"], wraplength=980, justify="left").grid(
             row=2, column=0, columnspan=5, sticky="w", pady=(2, 0))
 
-        # --- Strategie
-        top = ttk.LabelFrame(main, text="Mehrere Keys", padding=8)
-        top.pack(fill="x", pady=(8, 0))
-        ttk.Label(top, text="Keys nutzen").grid(row=0, column=0, sticky="w")
-        self.var_vert = tk.StringVar(value=store.optionen.get("verteilung", "gleichmaessig"))
-        ttk.Radiobutton(top, text="gleichmäßig verteilen", value="gleichmaessig", variable=self.var_vert,
-                        command=self._optionen_speichern).grid(row=0, column=1, padx=6)
-        ttk.Radiobutton(top, text="nacheinander (erst Key 1 aufbrauchen)", value="nacheinander",
-                        variable=self.var_vert, command=self._optionen_speichern).grid(row=0, column=2)
-
         # --- Keys
-        kf = ttk.LabelFrame(main, text="Keys", padding=8)
-        kf.pack(fill="both", expand=True, pady=(8, 0))
-        self._keys_bereich(kf)
+        self.kf = ttk.LabelFrame(self, text="Keys", padding=8)
+        self.kf.pack(fill="both", expand=True, pady=(8, 0))
+        self._keys_bereich(self.kf)
 
-        self.protocol("WM_DELETE_WINDOW", self.close)
-        self.refresh()
+        self._anbieter_anzeigen()
         self._tick()
-        if any(e.get("aktiv", True) for e in store.eintraege(PROV)):
-            self.after(200, lambda: self._modelle_laden(still=True))
-        else:
-            self.lbl_modelle.configure(text="Erst einen Key hinzufügen – danach werden die für deinen Key "
-                                            "verfügbaren Modelle hier zur Auswahl angezeigt.")
 
     # ---------------------------------------------------------------- Aufbau
     def _keys_bereich(self, tab):
-        prov = PROV
-        kl = PROVIDER_KLASSEN[prov]
         row = ttk.Frame(tab)
         row.pack(fill="x")
-        for text, url in (("Key erstellen ↗", kl.key_url), ("Limits online ↗", kl.limits_url),
-                          ("Guthaben in AI Studio ↗", "https://ai.studio/projects")):
+        self.links = []
+        for text in ("Key erstellen ↗", "Limits & Guthaben online ↗"):
             l = ttk.Label(row, text=text, foreground=P["accent"], cursor="hand2")
-            l.pack(side="right", padx=6)
-            l.bind("<Button-1>", lambda e, u=url: webbrowser.open(u))
+            l.pack(side="left", padx=(0, 14))
+            l.url = ""
+            l.bind("<Button-1>", lambda e, w=l: w.url and webbrowser.open(w.url))
+            self.links.append(l)
+        # Strategie bei mehreren Keys
+        self.var_vert = tk.StringVar(value=self.store.optionen.get("verteilung", "gleichmaessig"))
+        ttk.Radiobutton(row, text="nacheinander (erst Key 1 aufbrauchen)", value="nacheinander",
+                        variable=self.var_vert, command=self._optionen_speichern).pack(side="right")
+        ttk.Radiobutton(row, text="gleichmäßig verteilen", value="gleichmaessig", variable=self.var_vert,
+                        command=self._optionen_speichern).pack(side="right", padx=8)
+        ttk.Label(row, text="Mehrere Keys:").pack(side="right")
 
         cols = ("key", "status", "anfragen", "token", "minute", "gesamt")
-        tree = ttk.Treeview(tab, columns=cols, show="tree headings", height=6, selectmode="browse")
+        tree = ttk.Treeview(tab, columns=cols, show="tree headings", height=3, selectmode="browse")
         tree.heading("#0", text="Name")
         tree.column("#0", width=150)
-        for c, t, w in (("key", "Key", 100), ("status", "Status", 300), ("anfragen", "Anfragen heute", 120),
-                        ("token", "Token heute", 120), ("minute", "Pro Minute (Anfr. · Token)", 170),
-                        ("gesamt", "Gesamt", 90)):
+        for c, t, w in (("key", "Key", 100), ("status", "Status", 250), ("anfragen", "Anfragen heute", 110),
+                        ("token", "Token heute", 100), ("minute", "Pro Minute (Anfr. · Token)", 170),
+                        ("gesamt", "Gesamt", 80)):
             tree.heading(c, text=t)
             tree.column(c, width=w, anchor="w")
         tree.tag_configure("aus", foreground=P["zeile_aus"])
         tree.tag_configure("problem", foreground=P["danger"])
         tree.tag_configure("limit", foreground=P["warn"])
         tree.pack(fill="both", expand=True, pady=6)
-        tree.bind("<Double-1>", lambda e: self._bearbeiten(prov))
-        self.trees[prov] = tree
+        tree.column("#0", stretch=False)
+        tree.bind("<Double-1>", lambda e: self._bearbeiten())
+        self.tree = tree
 
         bf = ttk.Frame(tab)
         bf.pack(fill="x")
-        for text, cmd in (("＋ Hinzufügen", lambda: self._hinzufuegen(prov)), ("Bearbeiten", lambda: self._bearbeiten(prov)),
-                          ("Entfernen", lambda: self._entfernen(prov)), ("Ein/Aus", lambda: self._umschalten(prov)),
-                          ("▲", lambda: self._schieben(prov, -1)), ("▼", lambda: self._schieben(prov, 1)),
-                          ("Testen", lambda: self._testen(prov, alle=False)), ("Alle testen", lambda: self._testen(prov, alle=True)),
-                          ("Zähler zurücks.", lambda: self._reset(prov))):
+        for text, cmd in (("＋ Hinzufügen", self._hinzufuegen), ("Bearbeiten", self._bearbeiten),
+                          ("Entfernen", self._entfernen), ("Ein/Aus", self._umschalten),
+                          ("▲", lambda: self._schieben(-1)), ("▼", lambda: self._schieben(1)),
+                          ("Testen", lambda: self._testen(alle=False)), ("Alle testen", lambda: self._testen(alle=True)),
+                          ("Zähler zurücks.", self._reset)):
             ttk.Button(bf, text=text, command=cmd).pack(side="left", padx=(0, 4))
-        self.summary[prov] = ttk.Label(tab, text="", foreground=P["muted"])
-        self.summary[prov].pack(anchor="w", pady=(6, 0))
-        ttk.Label(tab, text="* = Annahme (Google veröffentlicht die Limits nicht fest; echte Werte in AI Studio → "
-                            "„Rate limits“, dann beim Key eintragen). Der Tageszähler wird um Mitternacht pazifischer "
-                            "Zeit (9:00 Uhr bei uns) zurückgesetzt.",
-                  foreground=P["muted"], wraplength=1050, justify="left").pack(anchor="w")
+        self.summary = ttk.Label(tab, text="", foreground=P["muted"])
+        self.summary.pack(anchor="w", pady=(6, 0))
+        ttk.Label(tab, text="* = Annahme – echte Limits stehen in der Konsole des Anbieters und können beim Key "
+                            "eingetragen werden.",
+                  foreground=P["muted"], wraplength=980, justify="left").pack(anchor="w")
+
+    # ---------------------------------------------------------------- Anbieter
+    def _anbieter_wechseln(self):
+        name = self._titel_zu_name.get(self.var_prov.get(), STANDARD_ANBIETER)
+        if name == self.prov:
+            return
+        self._optionen_speichern()             # Modellwahl des bisherigen Anbieters sichern
+        self.prov = name
+        with self.store.lock:
+            self.store.optionen["anbieter"] = name
+            self.store.save()
+        self._anbieter_anzeigen()
+        self.on_change()
+
+    def _anbieter_anzeigen(self):
+        kl = PROVIDER_KLASSEN[self.prov]
+        o = self.store.optionen
+        self._lade_nr += 1                     # Antworten einer noch laufenden Modellabfrage verwerfen
+        self.var_prov.set(PROVIDER_TITEL[self.prov])
+        self.var_modell.set(o.get("modelle", {}).get(self.prov) or kl.standard_modell)
+        aw = o.get("ausweich", {}).get(self.prov, kl.ausweich_modell)
+        self.var_ausweich.set(aw or KEIN_AUSWEICH)
+        self.cb_modell.configure(values=[self.var_modell.get()] if self.var_modell.get() else [])
+        self.cb_ausweich.configure(values=[KEIN_AUSWEICH] + ([aw] if aw else []))
+        self.mf.configure(text=f"KI-Modell ({kl.titel})")
+        self.kf.configure(text=f"Keys für {kl.titel}")
+        recherche = ("" if kl.kann_recherche else
+                     "Ohne eigene Websuche – die Marktrecherche übernimmt ein anderer Anbieter, für den ein Key "
+                     "eingetragen ist (Gemini, Claude, ChatGPT, Perplexity).")
+        self.lbl_hinweis.configure(text=" ".join(x for x in (getattr(kl, "hinweis", ""), recherche) if x))
+        if self.prov == "eigener":
+            self.frm_url.grid(row=2, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        else:
+            self.frm_url.grid_remove()
+        for lbl, url in zip(self.links, (kl.key_url, kl.limits_url)):
+            lbl.url = url
+            lbl.configure(foreground=P["accent"] if url else P["muted"])
+        self.refresh()
+        if any(e.get("aktiv", True) for e in self.store.eintraege(self.prov)):
+            self.after(200, lambda: self._modelle_laden(still=True))
+        else:
+            self.lbl_modelle.configure(text="Erst einen Key hinzufügen – danach werden die für deinen Key "
+                                            "verfügbaren Modelle hier zur Auswahl angezeigt.", foreground=P["muted"])
 
     # ---------------------------------------------------------------- Anzeige
     def _zeile(self, e: dict) -> tuple:
@@ -270,7 +325,7 @@ class KeyManager(tk.Toplevel):
 
         def lim_txt(f):
             v, q = lim[f]
-            return (_zahl(v) + ("*" if q == "Annahme" else "")) if v else "?"
+            return (_zahl(v) + ("*" if q == "Annahme" else "")) if v else "–"
 
         def von(used, f):
             return f"{_zahl(used)} / {lim_txt(f)}" if lim[f][0] else _zahl(used)
@@ -287,39 +342,42 @@ class KeyManager(tk.Toplevel):
                 f"{u.get('gesamt_anfragen', 0)} Anfr.")
 
     def refresh(self):
-        for prov, tree in self.trees.items():
-            sel = tree.selection()
-            ids = []
-            for e in self.store.eintraege(prov):
-                ids.append(e["id"])
-                vals = self._zeile(e)
-                st = vals[1]
-                tag = ("aus",) if st == "deaktiviert" else \
-                      ("problem",) if st.startswith(("ungültig", "Region/Abrechnung", "Guthaben leer")) else \
-                      ("limit",) if st.startswith(("Tageslimit", "Pause")) or "aufgebraucht" in st else ()
-                label = e["label"] + ("  (Umgebung)" if e.get("quelle") == "umgebung" else "")
-                if tree.exists(e["id"]):
-                    tree.item(e["id"], text=label, values=vals, tags=tag)
-                else:
-                    tree.insert("", "end", iid=e["id"], text=label, values=vals, tags=tag)
-            for iid in tree.get_children():
-                if iid not in ids:
-                    tree.delete(iid)
-            for i, iid in enumerate(ids):
-                tree.move(iid, "", i)
-            if sel and tree.exists(sel[0]):
-                tree.selection_set(sel)
-            alle = self.store.eintraege(prov)
-            aktiv = [e for e in alle if e.get("aktiv", True)]
-            heute = sum(self.store.nutzung(e["id"]).get("anfragen", 0) for e in alle)
-            rpd = [self.store.limits(e)["rpd"][0] for e in aktiv]
-            kap = sum(r for r in rpd if r) if rpd and all(rpd) else None
-            pausen = self.store.pausierte_modelle(prov)
-            self.summary[prov].configure(
-                text=f"{len(aktiv)} von {len(alle)} Keys aktiv · heute {heute} Anfragen"
-                     + (f" von ca. {_zahl(kap)} möglichen" if kap else "")
-                     + ("   ·   wegen Überlastung pausiert: " + ", ".join(
-                         f"{m} (bis {uhrzeit(t)})" for m, t in pausen) if pausen else ""))
+        tree, prov = self.tree, self.prov
+        sel = tree.selection()
+        ids = []
+        for e in self.store.eintraege(prov):
+            ids.append(e["id"])
+            vals = self._zeile(e)
+            st = vals[1]
+            tag = ("aus",) if st == "deaktiviert" else \
+                  ("problem",) if st.startswith(("ungültig", "Region/Abrechnung", "Guthaben leer")) else \
+                  ("limit",) if st.startswith(("Tageslimit", "Pause")) or "aufgebraucht" in st else ()
+            label = e["label"] + ("  (Umgebung)" if e.get("quelle") == "umgebung" else "")
+            if tree.exists(e["id"]):
+                tree.item(e["id"], text=label, values=vals, tags=tag)
+            else:
+                tree.insert("", "end", iid=e["id"], text=label, values=vals, tags=tag)
+        for iid in tree.get_children():
+            if iid not in ids:
+                tree.delete(iid)
+        for i, iid in enumerate(ids):
+            tree.move(iid, "", i)
+        if sel and tree.exists(sel[0]):
+            tree.selection_set(sel)
+        alle = self.store.eintraege(prov)
+        aktiv = [e for e in alle if e.get("aktiv", True)]
+        heute = sum(self.store.nutzung(e["id"]).get("anfragen", 0) for e in alle)
+        rpd = [self.store.limits(e)["rpd"][0] for e in aktiv]
+        kap = sum(r for r in rpd if r) if rpd and all(rpd) else None
+        pausen = self.store.pausierte_modelle(prov)
+        self.summary.configure(
+            text=f"{len(aktiv)} von {len(alle)} Keys aktiv · heute {heute} Anfragen"
+                 + (f" von ca. {_zahl(kap)} möglichen" if kap else "")
+                 + ("   ·   wegen Überlastung pausiert: " + ", ".join(
+                     f"{m} (bis {uhrzeit(t)})" for m, t in pausen) if pausen else ""))
+        mit_keys = sorted({PROVIDER_TITEL[e["provider"]] for e in self.store.eintraege() if e.get("aktiv", True)})
+        self.lbl_prov_keys.configure(text=("Keys vorhanden für: " + ", ".join(mit_keys)) if mit_keys else
+                                     "Noch keine Keys eingetragen.")
         self.on_change()
 
     def _tick(self):
@@ -328,23 +386,28 @@ class KeyManager(tk.Toplevel):
             self.after(1000, self._tick)
 
     # ---------------------------------------------------------------- Aktionen
-    def _sel(self, prov) -> dict | None:
-        sel = self.trees[prov].selection()
+    def _sel(self) -> dict | None:
+        sel = self.tree.selection()
         if not sel:
             messagebox.showinfo("API-Keys", "Bitte zuerst einen Key in der Liste auswählen.", parent=self)
             return None
         return self.store.get(sel[0])
 
-    def _hinzufuegen(self, prov):
-        KeyDialog(self, self.store, prov, None, on_save=self.refresh)
+    def _nach_speichern(self):
+        self.refresh()
+        self._modelle_laden(still=True)
 
-    def _bearbeiten(self, prov):
-        e = self._sel(prov)
+    def _hinzufuegen(self):
+        self._optionen_speichern()
+        KeyDialog(self.winfo_toplevel(), self.store, self.prov, None, on_save=self._nach_speichern)
+
+    def _bearbeiten(self):
+        e = self._sel()
         if e:
-            KeyDialog(self, self.store, prov, e, on_save=self.refresh)
+            KeyDialog(self.winfo_toplevel(), self.store, self.prov, e, on_save=self._nach_speichern)
 
-    def _entfernen(self, prov):
-        e = self._sel(prov)
+    def _entfernen(self):
+        e = self._sel()
         if not e:
             return
         if e.get("quelle") == "umgebung":
@@ -355,27 +418,28 @@ class KeyManager(tk.Toplevel):
             self.store.remove(e["id"])
             self.refresh()
 
-    def _umschalten(self, prov):
-        e = self._sel(prov)
+    def _umschalten(self):
+        e = self._sel()
         if e:
             self.store.update(e["id"], aktiv=not e.get("aktiv", True))
             self.refresh()
 
-    def _schieben(self, prov, r):
-        e = self._sel(prov)
+    def _schieben(self, r):
+        e = self._sel()
         if e:
             self.store.verschieben(e["id"], r)
             self.refresh()
 
-    def _reset(self, prov):
-        e = self._sel(prov)
+    def _reset(self):
+        e = self._sel()
         if e and messagebox.askyesno("API-Keys", f"Zähler und Sperren von „{e['label']}“ zurücksetzen?\n"
                                      "(Die echten Limits beim Anbieter ändern sich dadurch nicht.)", parent=self):
             self.store.zuruecksetzen(e["id"])
             self.refresh()
 
-    def _testen(self, prov, alle: bool):
-        eintraege = self.store.eintraege(prov) if alle else [e for e in [self._sel(prov)] if e]
+    def _testen(self, alle: bool):
+        prov = self.prov
+        eintraege = self.store.eintraege(prov) if alle else [e for e in [self._sel()] if e]
         if not eintraege:
             return
         modell = self.store.optionen["modelle"].get(prov, "")
@@ -405,47 +469,77 @@ class KeyManager(tk.Toplevel):
         threading.Thread(target=work, daemon=True).start()
 
     def _modelle_laden(self, still: bool = False):
-        keys = [e for e in self.store.eintraege(PROV) if e.get("aktiv", True)]
+        prov = self.prov
+        keys = [e for e in self.store.eintraege(prov) if e.get("aktiv", True)]
         if not keys:
             if not still:
                 messagebox.showinfo("Modelle", "Bitte zuerst einen Key hinzufügen.", parent=self)
             return
+        self._lade_nr += 1
+        nr = self._lade_nr
         self.lbl_modelle.configure(text="Lade die für deinen Key verfügbaren Modelle …", foreground=P["muted"])
+
+        def fertig(f):
+            if self.winfo_exists() and nr == self._lade_nr:
+                f()
 
         def work():
             try:
-                namen = PROVIDER_KLASSEN[PROV]().modelle(keys[0]["key"])
-                self.after(0, lambda: self.winfo_exists() and self._modelle_anzeigen(namen))
+                namen = PROVIDER_KLASSEN[prov]().modelle(keys[0]["key"])
+                self.after(0, lambda: fertig(lambda: self._modelle_anzeigen(namen)))
             except ProviderFehler as f:
-                self.after(0, lambda: self.winfo_exists() and self.lbl_modelle.configure(
-                    text=f"Modellliste nicht abrufbar: {f.meldung}", foreground=P["danger"]))
+                text = f"Modellliste nicht abrufbar: {f.meldung}"
+                self.after(0, lambda: fertig(lambda: self.lbl_modelle.configure(text=text, foreground=P["danger"])))
+            except Exception as ex:
+                text = f"Modellliste nicht abrufbar: {type(ex).__name__}: {ex}"
+                self.after(0, lambda: fertig(lambda: self.lbl_modelle.configure(text=text, foreground=P["danger"])))
         threading.Thread(target=work, daemon=True).start()
 
     def _modelle_anzeigen(self, namen: list[str]):
+        kl = PROVIDER_KLASSEN[self.prov]
+        if not namen:
+            self.lbl_modelle.configure(text="Der Anbieter hat keine Modelle gemeldet – Modellname bitte selbst "
+                                            "eintragen.", foreground=P["warn"])
+            return
         self.cb_modell.configure(values=namen)
-        self.cb_ausweich.configure(values=["(kein Ausweichmodell)"] + namen)
-        warn = [f"„{v.get()}“" for v in (self.var_modell, self.var_ausweich)
-                if v.get() and v.get() not in namen and v.get() != "(kein Ausweichmodell)"]
-        if warn:
-            self.lbl_modelle.configure(text=f"⚠ {' und '.join(warn)} ist für deinen Key nicht verfügbar – bitte "
-                                            f"ein Modell aus der Liste wählen ({len(namen)} verfügbar).",
-                                       foreground=P["danger"])
+        self.cb_ausweich.configure(values=[KEIN_AUSWEICH] + namen)
+        angepasst = []
+        if self.var_modell.get() not in namen:
+            alt, neu = self.var_modell.get(), kl.bestes_modell(namen)
+            self.var_modell.set(neu)
+            angepasst.append(f"Modell „{alt or '–'}“ → „{neu}“")
+        aw = self.var_ausweich.get()
+        if aw != KEIN_AUSWEICH and aw not in namen:
+            neu = kl.ausweich_modell if kl.ausweich_modell in namen and kl.ausweich_modell != self.var_modell.get() \
+                else KEIN_AUSWEICH
+            self.var_ausweich.set(neu)
+            angepasst.append(f"Ausweichmodell „{aw}“ → „{neu}“")
+        if angepasst:
+            self._optionen_speichern()
+            self.lbl_modelle.configure(text=f"⚠ Für deinen Key nicht verfügbar, automatisch angepasst: "
+                                            f"{'; '.join(angepasst)}. ({len(namen)} Modelle verfügbar)",
+                                       foreground=P["warn"])
         else:
-            self.lbl_modelle.configure(text=f"✔ {len(namen)} Modelle für deinen Key verfügbar. Empfehlung: "
-                                            "gemini-3.5-flash (gut & günstig), Ausweich: gemini-3.6-flash.",
+            tipp = f" Empfehlung: {kl.standard_modell}" + (f", Ausweich: {kl.ausweich_modell}" if kl.ausweich_modell
+                                                           else "") + "." if kl.standard_modell else ""
+            self.lbl_modelle.configure(text=f"✔ {len(namen)} Modelle für deinen Key verfügbar.{tipp}",
                                        foreground=P["ok"])
 
     def _optionen_speichern(self):
+        kl = PROVIDER_KLASSEN[self.prov]
         with self.store.lock:
-            self.store.optionen["verteilung"] = self.var_vert.get()
-            self.store.optionen["modelle"] = {PROV: self.var_modell.get().strip() or PROVIDER_KLASSEN[PROV].standard_modell}
+            o = self.store.optionen
+            o["verteilung"] = self.var_vert.get()
+            o.setdefault("modelle", {})[self.prov] = self.var_modell.get().strip() or kl.standard_modell
             aw = self.var_ausweich.get().strip()
-            self.store.optionen["ausweich"] = {PROV: "" if aw == "(kein Ausweichmodell)" else aw}
-            if self.lbl_modelle.cget("foreground") == P["danger"] and self.cb_modell.cget("values"):
-                self._modelle_anzeigen(list(self.cb_modell.cget("values")))
+            o.setdefault("ausweich", {})[self.prov] = "" if aw == KEIN_AUSWEICH else aw
+            url = self.var_url.get().strip()
+            if url != o.get("eigene_url", ""):
+                o["eigene_url"] = url
+                import providers
+                providers.EigenerProvider.basis_url = url
             self.store.save()
         self.on_change()
 
-    def close(self):
+    def schliessen(self):
         self._optionen_speichern()
-        self.destroy()

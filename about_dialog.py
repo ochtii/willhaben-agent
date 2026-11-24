@@ -166,7 +166,8 @@ class AboutDialog(tk.Toplevel):
     def _tab_ueberblick(self, f):
         self._h(f, "Gebraucht kaufen, ohne stundenlang zu suchen")
         self._p(f, "Der Willhaben KI-Agent durchsucht für dich alle passenden Anzeigen auf willhaben.at, liest "
-                   "jede Beschreibung und lässt Google Gemini die Angebote wie ein erfahrener Einkaufsberater "
+                   "jede Beschreibung und lässt eine KI deiner Wahl – Google Gemini, ChatGPT, Claude, Perplexity und viele "
+                   "mehr – die Angebote wie ein erfahrener Einkaufsberater "
                    "bewerten. Am Ende bekommst du die besten Treffer nach Preis/Leistung, mit Vor- und Nachteilen, "
                    "einer Einordnung der aktuellen Marktlage und einer klaren Empfehlung.")
         reihe = tk.Frame(f, bg=WEISS)
@@ -174,7 +175,7 @@ class AboutDialog(tk.Toplevel):
         for i, (sym, t, txt, farbe) in enumerate((
                 ("≡", "Alle Anzeigen", "Jede Ergebnisseite, jede Beschreibung – nicht nur die erste Seite.", BLAU),
                 ("★", "KI-Bewertung", "Specs, Zustand, Warnsignale und Preis/Leistung für jede Anzeige.", "#e0a100"),
-                ("↗", "Aktuelle Marktlage", "Live-Recherche per Google-Suche plus echte willhaben-Preise.", GRUEN))):
+                ("↗", "Aktuelle Marktlage", "Live-Recherche im Web plus echte willhaben-Preise.", GRUEN))):
             self._karte(reihe, sym, t, txt, farbe).grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 10, 0))
             reihe.columnconfigure(i, weight=1)
         self._p(f, "Für Laptops, PCs, Tablets, Handys, Konsolen, Kameras und jede andere willhaben-Kategorie. "
@@ -187,15 +188,16 @@ class AboutDialog(tk.Toplevel):
             ("Regionen", "Bundesländer + Bezirksauswahl (live von willhaben), frei kombinierbar"),
             ("KI-Bewertung", "Leistung, Preis/Leistung, Zustand, Warnsignale je Anzeige"),
             ("Endvergleich", "Top-N mit Vor-/Nachteilen, Fazit und Kauftipp"),
-            ("Marktrecherche", "aktuelle Preise & Trends per Google-Suche, mit Quellen"),
+            ("Marktrecherche", "aktuelle Preise & Trends per Websuche (Gemini, Claude, ChatGPT, Perplexity), mit Quellen"),
             ("willhaben-Marktpreise", "Median je RAM-Klasse aus den echten Anzeigen"),
-            ("Modellwahl", "Gemini-Modell + Ausweichmodell aus der Liste deines Keys"),
-            ("Mehrere Keys", "automatisch verteilt – gleichmäßig oder nacheinander"),
-            ("Limit-Manager", "Verbrauch, Minuten- & Tageslimits live, Pausen bei Überlastung"),
+            ("Viele KI-Anbieter", "Gemini (Standard), ChatGPT, Claude, Perplexity, Mistral, DeepSeek, Grok, Groq, "
+                                  "OpenRouter, Together, eigene Adresse – mit Modell + Ausweichmodell"),
+            ("Mehrere Keys", "je Anbieter, automatisch verteilt; Verbrauch und Limits live, Pausen bei Überlastung"),
             ("Live-Ansicht", "Protokoll, Anzeigen-Tabelle und Ergebnis in Echtzeit"),
             ("Berichte", "Markdown-Bericht + JSON aller Anzeigen und Bewertungen"),
             ("Updates", "prüft GitHub beim Start, Update mit einem Klick, räumt selbst auf"),
-            ("Modernes Design", "helles oder dunkles Erscheinungsbild (Einstellungen → Design)"),
+            ("Einstellungen", "alles in einem Fenster – Zahnrad rechts oben, Hilfe → Einstellungen oder Strg+K"),
+            ("Modernes Design", "helles oder dunkles Erscheinungsbild (Einstellungen → Darstellung)"),
             ("Windows & Linux", "eigene Installer, Startmenü, Updates und Deinstallation"),
         ]
         grid = tk.Frame(f, bg=WEISS)
@@ -219,9 +221,10 @@ class AboutDialog(tk.Toplevel):
                       "übersetzt Bezirke direkt in willhaben-Filter."),
             ("Details", "Jede Anzeige wird geöffnet: vollständige Beschreibung, Marke, Zustand, privat oder Händler. "
                         "Kontaktdaten der Verkäufer werden bewusst nicht gespeichert."),
-            ("Marktrecherche", "Gemini sucht per Google nach aktuellen Gebraucht- und Neupreisen, Trends und "
-                               "Kauftipps – damit die Bewertung nicht auf veraltetem Wissen beruht."),
-            ("KI-Bewertung", "In Paketen zu 30 Anzeigen: technische Daten aus dem Freitext, Relevanz, Leistung, "
+            ("Marktrecherche", "Die KI sucht im Web nach aktuellen Gebraucht- und Neupreisen, Trends und "
+                               "Kauftipps – damit die Bewertung nicht auf veraltetem Wissen beruht. Hat der gewählte "
+                               "Anbieter keine Websuche, springt ein anderer mit Key ein."),
+            ("KI-Bewertung", "Mit dem gewählten Anbieter und Modell, in Paketen zu bis zu 30 Anzeigen: technische Daten aus dem Freitext, Relevanz, Leistung, "
                              "Preis/Leistung und Warnsignale wie Defekte oder Betrugsverdacht."),
             ("Endvergleich", "Die besten Kandidaten werden direkt gegeneinander verglichen – heraus kommen deine "
                              "Top-Geräte mit Vor- und Nachteilen und einer klaren Empfehlung."),
@@ -323,7 +326,7 @@ class AboutDialog(tk.Toplevel):
                 ("Fehler melden / Idee vorschlagen", f"{REPO_URL}/issues/new", "Issue auf GitHub anlegen"),
                 ("Versionsgeschichte", f"{REPO_URL}/commits/{updater.BRANCH}", "alle Änderungen im Detail"),
                 ("API-Key-Anleitung", f"{REPO_URL}/blob/{updater.BRANCH}/ANLEITUNG-API-KEY.md",
-                 "Google-Gemini-Key in 3 Minuten"))):
+                 "Key für Gemini & Co. in 3 Minuten"))):
             zelle = tk.Frame(links, bg=WEISS)
             zelle.grid(row=i // 2, column=i % 2, sticky="w", padx=(0, 30), pady=4)
             self._link(zelle, "➜ " + titel, url, size=10).pack(anchor="w")
@@ -331,9 +334,9 @@ class AboutDialog(tk.Toplevel):
 
         self._h(f, "Gut zu wissen", top=14)
         for txt in (f"Deine API-Keys bleiben auf deinem PC ({settings.CONFIG_DIR}, nur für dich lesbar).",
-                    "An Google gehen nur öffentliche Anzeigentexte – keine Telefonnummern oder Adressen.",
+                    "An den KI-Anbieter gehen nur öffentliche Anzeigentexte – keine Telefonnummern oder Adressen.",
                     "Nur für den privaten Gebrauch. Bitte die Nutzungsbedingungen von willhaben beachten.",
-                    "Läuft unter Windows 10/11 und Linux. Gebaut mit Python, Tkinter und Google Gemini."):
+                    "Läuft unter Windows 10/11 und Linux. Gebaut mit Python und Tkinter."):
             zeile = tk.Frame(f, bg=WEISS)
             zeile.pack(anchor="w", pady=1)
             tk.Label(zeile, text="●", bg=WEISS, fg=GRUEN, font=("TkDefaultFont", 8)).pack(side="left")

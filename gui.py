@@ -40,11 +40,12 @@ from theme import P  # noqa: E402
 from pipeline import Auftrag, Ereignisse, run, region_text  # noqa: E402
 from bezirk_dialog import BezirkDialog, kurzname  # noqa: E402
 from keys import KeyStore, KIFehler, maskiert  # noqa: E402
-from keys_dialog import KeyManager, _zahl  # noqa: E402
+from keys_dialog import _zahl  # noqa: E402
+from einstellungen_dialog import EinstellungenDialog  # noqa: E402
 import updater  # noqa: E402
 from update_dialog import UpdateDialog  # noqa: E402
 from about_dialog import AboutDialog  # noqa: E402
-from providers import PROVIDER_TITEL  # noqa: E402
+from providers import PROVIDER_KLASSEN, PROVIDER_TITEL  # noqa: E402
 from willhaben import CATEGORIES, Abgebrochen  # noqa: E402
 
 APP_TITLE = "Willhaben KI-Agent"
@@ -114,12 +115,13 @@ class App:
         self.started_at: datetime | None = None
         self.cfg = settings.load()
         self.store = KeyStore()
-        self.key_manager: KeyManager | None = None
+        self.einstellungen: EinstellungenDialog | None = None
 
         self.version = updater.version_text()
         root.title(f"{APP_TITLE}  v{self.version}")
         self.var_update_start = tk.BooleanVar(value=self.cfg.get("update_beim_start", True))
         self.var_update_start.trace_add("write", lambda *a: self._update_option_speichern())
+        self.var_design = tk.StringVar(value=self.cfg.get("design", "hell"))
         root.geometry(self.cfg.get("geometry", "1280x820"))
         root.minsize(1060, 680)
         theme.anwenden(root, self.cfg.get("design", "hell"))
@@ -134,44 +136,33 @@ class App:
             root.after(1500, lambda: self.update_pruefen(manuell=False))
         self._log("Bereit. Suchauftrag links ausfüllen und auf ▶ Start klicken.", "info")
         if not self.store.eintraege():
-            self._log("Hinweis: Noch kein Google-Gemini-Key eingetragen → „API-Keys & Limits …“ (Strg+K).", "warn")
+            self._log("Hinweis: Noch kein API-Key eingetragen → Zahnrad rechts oben → „KI-Anbieter & Keys“ "
+                      "(Strg+K).", "warn")
 
     # ------------------------------------------------------------------ Layout
     def _build(self):
         menubar = tk.Menu(self.root)
-        m = tk.Menu(menubar, tearoff=0)
-        m.add_command(label="API-Keys & Limits …", command=self.open_keys, accelerator="Strg+K")
-        m.add_command(label="Ergebnis-Ordner öffnen", command=lambda: open_path(self._outdir()))
-        m.add_separator()
-        m.add_command(label="Nach Updates suchen …", command=lambda: self.update_pruefen(manuell=True))
-        m.add_checkbutton(label="Beim Start nach Updates suchen", variable=self.var_update_start)
-        m.add_separator()
-        self.var_design = tk.StringVar(value=self.cfg.get("design", "hell"))
-        dm = tk.Menu(m, tearoff=0)
-        dm.add_radiobutton(label="Hell", value="hell", variable=self.var_design, command=self._design_wechseln)
-        dm.add_radiobutton(label="Dunkel", value="dunkel", variable=self.var_design, command=self._design_wechseln)
-        m.add_cascade(label="Design", menu=dm)
-        m.add_separator()
-        m.add_command(label="Beenden", command=self.on_close)
-        menubar.add_cascade(label="Einstellungen", menu=m)
         h = tk.Menu(menubar, tearoff=0)
+        h.add_command(label="Einstellungen …", command=self.open_einstellungen, accelerator="Strg+K")
+        h.add_separator()
         h.add_command(label="Anleitung: API-Key holen ↗", command=lambda: webbrowser.open(
             f"{updater.REPO_URL}/blob/{updater.BRANCH}/ANLEITUNG-API-KEY.md"))
-        h.add_command(label="Gemini-Key erstellen ↗", command=lambda: webbrowser.open("https://aistudio.google.com/apikey"))
+        h.add_command(label="API-Key beim gewählten Anbieter erstellen ↗", command=lambda: webbrowser.open(
+            PROVIDER_KLASSEN[self.store.optionen.get("anbieter", "gemini")].key_url))
         h.add_separator()
         h.add_command(label="Über …", command=self._ueber)
         menubar.add_cascade(label="Hilfe", menu=h)
         self.root.configure(menu=menubar)
-        self.root.bind_all("<Control-k>", lambda e: self.open_keys())
+        self.root.bind_all("<Control-k>", lambda e: self.open_einstellungen())
+        self.root.bind_all("<Control-comma>", lambda e: self.open_einstellungen())
+        self.root.bind_all("<Control-q>", lambda e: self.on_close())
         try:
             img = tk.PhotoImage(file=str(Path(__file__).resolve().parent / "icon.png"))
             self._kopf_icon = img.subsample(max(1, img.width() // 40))
         except Exception:
             self._kopf_icon = None
         self.kopf = theme.Kopfleiste(self.root, APP_TITLE, "Durchsucht alle Anzeigen auf willhaben und bewertet sie mit KI",
-                                     self.version, self._kopf_icon,
-                                     [("API-Keys", self.open_keys), ("Updates", lambda: self.update_pruefen(manuell=True)),
-                                      ("Über", self._ueber)])
+                                     self.version, self._kopf_icon, einstellungen=self.open_einstellungen)
         self.kopf.pack(fill="x")
         main = ttk.PanedWindow(self.root, orient="horizontal")
         main.pack(fill="both", expand=True)
@@ -267,7 +258,7 @@ class App:
         ttk.Checkbutton(f, text="Schnellmodus (nur Kurzbeschreibung laden)",
                         variable=self.var_ohne_details).grid(row=2, column=0, columnspan=2, sticky="w", pady=(4, 0))
         self.var_markt = tk.BooleanVar(value=True)
-        ttk.Checkbutton(f, text="Aktuelle Marktlage per Google-Suche einbeziehen",
+        ttk.Checkbutton(f, text="Aktuelle Marktlage per Websuche einbeziehen",
                         variable=self.var_markt).grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 0))
         ttk.Label(f, text="Oder: Such-URL aus dem Browser (überschreibt Kategorie)").grid(
             row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
@@ -281,7 +272,7 @@ class App:
         self.lbl_ki.pack(anchor="w", fill="x")
         self.lbl_ki_live = ttk.Label(f, text="", style="Sub.TLabel", justify="left", wraplength=320)
         self.lbl_ki_live.pack(anchor="w", fill="x", pady=(4, 0))
-        ttk.Button(f, text="API-Keys & Limits verwalten …", command=self.open_keys).pack(fill="x", pady=(8, 0))
+        ttk.Button(f, text="KI-Anbieter & Keys …", command=self.open_einstellungen).pack(fill="x", pady=(8, 0))
 
         # ---------------- rechte Seite
         right = ttk.Frame(main, padding=(8, 12, 14, 12))
@@ -504,10 +495,11 @@ class App:
         if self.worker and self.worker.is_alive():
             return
         a = self._auftrag()
-        if not any(e.get("aktiv", True) for e in self.store.eintraege("gemini")):
-            if messagebox.askyesno(APP_TITLE, "Es ist noch kein (aktiver) API-Key eingetragen.\n\n"
-                                   "Jetzt die Key-Verwaltung öffnen?"):
-                self.open_keys()
+        anbieter = self.store.optionen.get("anbieter", "gemini")
+        if not any(e.get("aktiv", True) for e in self.store.eintraege(anbieter)):
+            if messagebox.askyesno(APP_TITLE, f"Für {PROVIDER_TITEL[anbieter]} ist noch kein (aktiver) API-Key "
+                                   "eingetragen.\n\nJetzt die Einstellungen öffnen?"):
+                self.open_einstellungen()
             return
         if a.kategorie not in CATEGORIES and "/" not in a.kategorie and not a.url:
             messagebox.showerror(APP_TITLE, f"Unbekannte Kategorie „{a.kategorie}“.\nBitte aus der Liste wählen.")
@@ -627,26 +619,31 @@ class App:
             return
         self._about = AboutDialog(self.root, self.version, on_update=lambda: self.update_pruefen(manuell=True))
 
-    def open_keys(self):
-        if self.key_manager is not None and self.key_manager.winfo_exists():
-            self.key_manager.lift()
-            self.key_manager.focus_force()
+    def open_einstellungen(self, reiter: str = "ki"):
+        if self.einstellungen is not None and self.einstellungen.winfo_exists():
+            self.einstellungen.zeigen(reiter)
+            self.einstellungen.lift()
+            self.einstellungen.focus_force()
             return
-        self.key_manager = KeyManager(self.root, self.store, on_change=self._ki_refresh)
+        self.einstellungen = EinstellungenDialog(self.root, self, reiter)
+
+    open_keys = open_einstellungen
 
     def _ki_refresh(self):
         """Kurzübersicht der Keys im Hauptfenster."""
         st = self.store
-        alle = st.eintraege("gemini")
+        anbieter = st.optionen.get("anbieter", "gemini")
+        alle = st.eintraege(anbieter)
         aktiv = [e for e in alle if e.get("aktiv", True)]
         bereit = [e for e in aktiv if st.status_text(e).startswith(("bereit", "Pause"))]
         heute = sum(st.nutzung(e["id"]).get("anfragen", 0) for e in alle)
-        modell = st.optionen.get("modelle", {}).get("gemini", "?")
-        ausweich = st.optionen.get("ausweich", {}).get("gemini") or "–"
+        modell = st.optionen.get("modelle", {}).get(anbieter) or "–"
+        ausweich = st.optionen.get("ausweich", {}).get(anbieter) or "–"
         vert = "gleichmäßig" if st.optionen.get("verteilung") == "gleichmaessig" else "nacheinander"
         keys_txt = (f"{len(bereit)}/{len(aktiv)} Keys bereit ({vert}) · heute {heute} Anfr." if alle else "kein Key")
-        self.lbl_ki.configure(text=tk_safe(f"Google Gemini: {keys_txt}\nModell: {modell} · Ausweich: {ausweich}"))
-        letzte = max(st.eintraege(), key=lambda e: st.nutzung(e["id"]).get("zuletzt", 0), default=None)
+        self.lbl_ki.configure(text=tk_safe(f"{PROVIDER_TITEL[anbieter]}: {keys_txt}\n"
+                                           f"Modell: {modell} · Ausweich: {ausweich}"))
+        letzte = max(alle, key=lambda e: st.nutzung(e["id"]).get("zuletzt", 0), default=None)
         if letzte and st.nutzung(letzte["id"]).get("zuletzt"):
             u, lim = st.nutzung(letzte["id"]), st.limits(letzte)
             srv = u.get("server", {})
@@ -657,8 +654,8 @@ class App:
                 f"{u.get('anfragen', 0)}/{_zahl(rpd) if rpd else '?'}{'*' if lim['rpd'][1] == 'Annahme' else ''} "
                 f"heute, {st.status_text(letzte)}{rest}"))
         else:
-            self.lbl_ki_live.configure(text="Noch keine KI-Anfrage." if st.eintraege() else
-                                       "→ Unten auf „API-Keys & Limits verwalten“ klicken und einen Key hinzufügen.")
+            self.lbl_ki_live.configure(text="Noch keine KI-Anfrage." if alle else
+                                       "→ Unten auf „KI-Anbieter & Keys …“ klicken und einen Key hinzufügen.")
 
     def _ki_tick(self):
         if self.root.winfo_exists():
@@ -792,7 +789,7 @@ class App:
         ins(erg.zusammenfassung + "\n")
         markt, quellen = getattr(self, "_marktlage", ("", []))
         if markt:
-            ins("\nAktuelle Marktlage (Google-Suche)\n", "h2")
+            ins("\nAktuelle Marktlage (Websuche)\n", "h2")
             ins(markt + "\n", "dim")
             for i, (titel, url) in enumerate(quellen[:8]):
                 tag = f"quelle-{i}"

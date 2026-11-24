@@ -1,6 +1,11 @@
-# Google-Gemini-API-Key holen
+# API-Key holen
 
-Der Agent nutzt **Google Gemini**. Den Key trägt man im Programm unter **Einstellungen → API-Keys & Limits** ein (Strg+K). Man kann beliebig viele Keys eintragen, der Agent verteilt die Anfragen dann automatisch.
+Der Agent nutzt standardmäßig **Google Gemini** (kostenloser Einstieg, Anleitung unten). Alternativ gehen **OpenAI/ChatGPT,
+Anthropic Claude, Perplexity, Mistral, DeepSeek, xAI Grok, Groq, OpenRouter, Together AI** oder eine eigene
+OpenAI-kompatible Adresse (siehe „Andere KI-Anbieter“ weiter unten).
+
+Den Key trägt man im Programm über das **Zahnrad rechts oben → „KI-Anbieter & Keys“** ein (auch: Hilfe → Einstellungen
+oder Strg+K). Man kann beliebig viele Keys je Anbieter eintragen, der Agent verteilt die Anfragen dann automatisch.
 
 ---
 
@@ -12,7 +17,7 @@ Dauer: ca. 3 Minuten. Du brauchst nur ein Google-Konto (z. B. dein Gmail-Konto).
 
 Im Browser öffnen: **https://aistudio.google.com/apikey**
 
-Im Agenten geht das auch direkt: Klick auf **„→ Key holen (kostenlos)“** im Feld „KI“.
+Im Agenten geht das auch direkt: Hilfe → **„API-Key beim gewählten Anbieter erstellen ↗“**.
 
 ## 2. Mit dem Google-Konto anmelden
 
@@ -38,10 +43,10 @@ Im Agenten geht das auch direkt: Klick auf **„→ Key holen (kostenlos)“** i
 ## 4. Key im Agenten eintragen
 
 1. Den Willhaben KI-Agenten starten.
-2. **Einstellungen → API-Keys & Limits** öffnen (oder Strg+K, oder links der Knopf „API-Keys & Limits verwalten …“).
-3. Im Bereich **„Keys“** auf **„＋ Hinzufügen“** klicken.
+2. Das **Zahnrad rechts oben** anklicken (oder Strg+K, Hilfe → Einstellungen, links der Knopf „KI-Anbieter & Keys …“).
+3. Im Reiter **„KI-Anbieter & Keys“** ist **Google Gemini** schon gewählt. Im Bereich **„Keys für Google Gemini“** auf **„＋ Hinzufügen“** klicken.
 4. Einen Namen vergeben (z. B. „Privat“), den Key einfügen (Strg+V) und auf **„Testen“** klicken. Bei Erfolg auf **„Speichern“** klicken.
-   Gespeichert wird der Key in `~/.config/willhaben-agent/keys.json`, nur für deinen Benutzer lesbar.
+   Gespeichert wird der Key in `~/.config/willhaben-agent/keys.json` (Windows: `%APPDATA%\willhaben-agent\keys.json`), nur für deinen Benutzer lesbar.
 5. Oben unter **„KI-Modell“** stehen danach alle Modelle, die für deinen Key verfügbar sind. Wähle ein **Modell** und ein **Ausweichmodell**.
    - Voreingestellt sind `gemini-3.5-flash` (gut und günstig) und `gemini-3.6-flash`.
    - Das Ausweichmodell springt nur ein, wenn das gewählte Modell überlastet ist, nicht verfügbar ist oder sein Tageskontingent aufgebraucht hat. Andere Modelle verwendet der Agent nie von sich aus.
@@ -74,6 +79,35 @@ Google hat den Gratis-Zugang in der EU früher zeitweise eingeschränkt. Kommt b
 
 ---
 
+# Andere KI-Anbieter
+
+Im Einstellungsfenster oben unter **„Anbieter“** wählen, dann wie oben Key hinzufügen. Die Modellliste lädt automatisch;
+ist das voreingestellte Modell für deinen Key nicht verfügbar, wählt der Agent selbst ein passendes.
+
+| Anbieter | Key erstellen | Umgebungsvariable | Hinweise |
+|---|---|---|---|
+| **Google Gemini** (Standard) | https://aistudio.google.com/apikey | `GEMINI_API_KEY` | Gratis-Tarif, Marktrecherche per Google-Suche |
+| **OpenAI (ChatGPT)** | https://platform.openai.com/api-keys | `OPENAI_API_KEY` | nach Verbrauch (Guthaben aufladen), Websuche für die Marktrecherche |
+| **Anthropic Claude** | https://console.anthropic.com/settings/keys | `ANTHROPIC_API_KEY` | nach Verbrauch, sehr gründlich, eigene Websuche |
+| **Perplexity** | https://www.perplexity.ai/account/api/keys | `PERPLEXITY_API_KEY` | sucht bei jeder Anfrage im Web |
+| **Mistral AI** | https://console.mistral.ai/api-keys | `MISTRAL_API_KEY` | europäischer Anbieter, Gratis-Testzugang |
+| **DeepSeek** | https://platform.deepseek.com/api_keys | `DEEPSEEK_API_KEY` | sehr günstig, Server in China |
+| **xAI Grok** | https://console.x.ai | `XAI_API_KEY` | nach Verbrauch |
+| **Groq** | https://console.groq.com/keys | `GROQ_API_KEY` | Gratis-Tarif, kleine Limits (kleinere Pakete) |
+| **OpenRouter** | https://openrouter.ai/settings/keys | `OPENROUTER_API_KEY` | ein Key für hunderte Modelle |
+| **Together AI** | https://api.together.ai/settings/api-keys | `TOGETHER_API_KEY` | offene Modelle (Llama, Qwen, …) |
+| **Eigener Anbieter** | – | – | Basis-URL einer OpenAI-kompatiblen Schnittstelle eintragen (z. B. Azure OpenAI, Fireworks, Cerebras) |
+
+- **Marktrecherche:** Gemini, Claude, ChatGPT und Perplexity können selbst im Web suchen. Bei den anderen Anbietern
+  übernimmt die Recherche automatisch ein Anbieter mit Websuche, für den ein Key eingetragen ist – sonst wird ohne sie
+  bewertet.
+- **Kosten:** Bei bezahlten Anbietern im Konto des Anbieters ein Ausgabenlimit setzen. Ein Suchlauf mit ~100 Anzeigen
+  braucht etwa 5–10 Anfragen.
+- Bei „Kein Guthaben“ springt der Agent nicht still auf einen anderen Anbieter um – erst nach dem Aufladen oder einem
+  Wechsel in den Einstellungen geht es weiter.
+
+---
+
 # Der Key- und Limit-Manager
 
 | Spalte | Bedeutung |
@@ -91,15 +125,16 @@ Google hat den Gratis-Zugang in der EU früher zeitweise eingeschränkt. Kommt b
 - Hat ein Key das Tageskontingent eines Modells aufgebraucht, nimmt er für den Rest des Tages das Ausweichmodell. Sind bei einem Key beide Modelle aufgebraucht, wird er bis zum Reset übersprungen und die anderen Keys übernehmen.
 - **Echte Gemini-Limits eintragen:** Google zeigt sie in AI Studio unter **„Rate limits“**. Über „Bearbeiten“ beim Key eintragen, dann rechnet der Agent damit statt mit Annahmen.
 
-> ⚠ Keys von **verschiedenen eigenen Konten** nur zum Vervielfachen der Gratis-Limits verstoßen meist gegen die Nutzungsbedingungen von Google. Das kann zur **Sperre aller beteiligten Konten** führen. Unproblematisch sind z. B. ein eigener Key plus der Key einer anderen Person, die ihn dir gibt.
+> ⚠ Keys von **verschiedenen eigenen Konten** nur zum Vervielfachen der Gratis-Limits verstoßen meist gegen die Nutzungsbedingungen der Anbieter. Das kann zur **Sperre aller beteiligten Konten** führen. Unproblematisch sind z. B. ein eigener Key plus der Key einer anderen Person, die ihn dir gibt.
 
 ## Häufige Probleme
 
 | Meldung im Agenten | Lösung |
 |---|---|
 | „API-Key ungültig oder ohne Berechtigung“ | Key vollständig kopiert? Keine Leerzeichen am Anfang oder Ende? Wurde er in AI Studio gelöscht? Notfalls neuen Key erstellen. |
-| „Modell … nicht gefunden“ / „überlastet“ | Der Agent weicht automatisch auf das Ausweichmodell aus. Sind beide nicht verfügbar, im Key-Manager unter „KI-Modell“ andere Modelle aus der Liste wählen. |
-| „Kein Key mehr verfügbar“ | Alle Keys sind für heute aufgebraucht. Im Key-Manager steht, ab wann sie wieder gehen. |
+| „Modell … nicht gefunden“ / „überlastet“ | Der Agent weicht automatisch auf das Ausweichmodell aus. Sind beide nicht verfügbar, in den Einstellungen unter „KI-Modell“ andere Modelle aus der Liste wählen. |
+| „Kein Guthaben/Kontingent mehr“ | Beim Anbieter Guthaben aufladen bzw. Abrechnung prüfen – oder in den Einstellungen einen anderen Anbieter wählen. |
+| „Kein Key mehr verfügbar“ | Alle Keys sind für heute aufgebraucht. In den Einstellungen steht, ab wann sie wieder gehen. |
 | „Minutenlimit erreicht – Pause …“ | Normal im Free Tier. Der Agent nimmt einen anderen Key oder wartet kurz. |
 | „Tageslimit des Free Tiers erreicht“ | Morgen weitermachen, unter „Max. Anzeigen für KI“ weniger einstellen oder die Suche enger fassen (Bezirk, Suchbegriff, Preis). |
 | „… aus deiner Region nicht nutzbar“ | Siehe oben „Wichtig für Österreich / EU“. |

@@ -1,9 +1,12 @@
 # Willhaben KI-Agent
 
 Durchsucht **alle** Anzeigen einer willhaben-Suche, lädt die vollständigen Beschreibungen und lässt
-**Google Gemini** die besten Angebote nach Preis/Leistung bzw.
-bestem Kompromiss auswählen – mit Vor-/Nachteilen, Marktüberblick und Tipp. Mit grafischer Oberfläche für Linux, in der
-man live sieht, was der Agent gerade macht.
+eine KI deiner Wahl die besten Angebote nach Preis/Leistung bzw. bestem Kompromiss auswählen – mit Vor-/Nachteilen,
+Marktüberblick und Tipp. Mit grafischer Oberfläche für Windows und Linux, in der man live sieht, was der Agent gerade
+macht.
+
+**KI-Anbieter:** Google Gemini (Standard), OpenAI/ChatGPT, Anthropic Claude, Perplexity, Mistral, DeepSeek, xAI Grok,
+Groq, OpenRouter, Together AI oder jede andere OpenAI-kompatible Schnittstelle – jeweils mit eigenem API-Key.
 
 ## Installation (einmalig)
 
@@ -41,15 +44,15 @@ Der Installer
 
 Anderer Installationsort: `WILLHABEN_AGENT_HOME=/pfad ./install.sh`
 
-Danach einen **Google-Gemini-API-Key** holen und unter **Einstellungen → API-Keys & Limits**
-eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
+Danach einen **API-Key** holen (am einfachsten und kostenlos: Google Gemini) und über das **Zahnrad rechts oben →
+„KI-Anbieter & Keys“** eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 
 ## Starten
 
 - **Desktop:** Startmenü oder Schreibtisch → „Willhaben KI-Agent“
 - **Mit Protokoll im Terminal:** im Terminal `willhaben-agent` starten – das Fenster erscheint, und im Terminal läuft dasselbe Protokoll mit
 - **Aus dem Terminal:** `willhaben-agent`
-- **Keys im Terminal:** `willhaben-agent-cli --keys` zeigt Keys, Limits und Verbrauch. `willhaben-agent-cli --key-hinzufuegen "Privat" AIza…` speichert einen Key, `--modelle` listet die für deinen Key verfügbaren Modelle.
+- **Keys im Terminal:** `willhaben-agent-cli --keys` zeigt Anbieter, Keys, Limits und Verbrauch. `willhaben-agent-cli --key-hinzufuegen "Privat" AIza…` speichert einen Key (für einen anderen Anbieter mit `--anbieter openai`, `anthropic`, `perplexity`, …), `--modelle` listet die für deinen Key verfügbaren Modelle. `--anbieter` wählt den Anbieter auch für einen einzelnen Suchlauf.
 - **Ohne Fenster (reine Terminal-Version):**
   ```bash
   willhaben-agent-cli --kategorie laptops --von 200 --bis 600 --bundesland wien --bezirk Favoriten \
@@ -59,9 +62,9 @@ eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 ## Updates
 
 - **Beim Start** prüft die App im Hintergrund auf GitHub, ob es eine neuere Version gibt. Wenn ja, zeigt sie Versionsnummern und Änderungen an: **Jetzt aktualisieren · Später · Diese Version überspringen**.
-- **Von Hand:** Einstellungen → **Nach Updates suchen …** Dort lässt sich auch die Prüfung beim Start abschalten.
+- **Von Hand:** Zahnrad → Einstellungen → **Allgemein & Updates** → „Jetzt nach Updates suchen …“. Dort lässt sich auch die Prüfung beim Start abschalten.
 - **Terminal:** `willhaben-agent-cli --version` bzw. `willhaben-agent-cli --update`
-- **Versionsnummer** `1.1.N`: `1.1` steht in der Datei `VERSION` (für größere Sprünge von Hand ändern). **N zählt die Commits seit der letzten Änderung von `VERSION`** und steigt bei jedem Push automatisch. Der Commit, der `VERSION` ändert, ist `.0`.
+- **Versionsnummer** `1.2.N`: `1.2` steht in der Datei `VERSION` (für größere Sprünge von Hand ändern). **N zählt die Commits seit der letzten Änderung von `VERSION`** und steigt bei jedem Push automatisch. Der Commit, der `VERSION` ändert, ist `.0`.
 - **Versionsverlauf:** `CHANGELOG.md`, in der App unter Hilfe → Über → „Neuigkeiten“.
 - **Aufräumen:** Ein Update übernimmt nur die Dateien, die laut `laufzeit-dateien.txt` der neuen Version gebraucht werden, und löscht im Installationsordner alles andere. Neue Programmdateien müssen deshalb in `laufzeit-dateien.txt` eingetragen werden.
 - **So wird installiert:**
@@ -72,14 +75,17 @@ eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 
 ## Das Fenster
 
-Modernes Erscheinungsbild (Sun-Valley-Theme), wahlweise **hell oder dunkel**: Einstellungen → Design.
+Modernes Erscheinungsbild (Sun-Valley-Theme), wahlweise **hell oder dunkel**: Einstellungen → Darstellung.
 
 
 | Bereich | Inhalt |
 |---|---|
 | **Links: Suchauftrag** | Suchbegriff, Kategorie, Beschreibung, Preisspanne, Bundesländer (Häkchen). Unter jedem angehakten Bundesland öffnet **„Bezirke …“** eine Auswahl aller Bezirke (live von willhaben, mit Suche und Anzeigenzahl). Nichts gewählt bedeutet das ganze Bundesland. Dazu Anzahl Top-Geräte. Die Eingaben werden fürs nächste Mal gemerkt. Darunter eine Kurzübersicht der Keys (bereit, heute verbraucht, zuletzt genutzt). |
-| **Einstellungen → API-Keys & Limits** (Strg+K) | **Modell** und **Ausweichmodell** aus der Liste der für deinen Key verfügbaren Gemini-Modelle wählen. Dazu beliebig viele Gemini-Keys: hinzufügen, ändern, testen, ein- und ausschalten, Reihenfolge festlegen, Verteilung gleichmäßig oder nacheinander. Verbrauch und Limits werden live angezeigt. |
-| **Kopfleiste** | Farbverlauf mit Version und Schnellzugriffen: API-Keys · Updates · Über |
+| **Kopfleiste** | Farbverlauf mit Version, rechts das **Zahnrad** für die Einstellungen |
+| **Menü „Hilfe“** | Einstellungen … (Strg+K), Anleitung API-Key, Key beim gewählten Anbieter erstellen, Über … |
+| **Einstellungen → KI-Anbieter & Keys** | **Anbieter** wählen (Gemini, ChatGPT, Claude, Perplexity, Mistral, DeepSeek, Grok, Groq, OpenRouter, Together, eigene Adresse). **Modell** und **Ausweichmodell** aus der Liste der für deinen Key verfügbaren Modelle (passt sich automatisch an, wenn ein Modell fehlt). Beliebig viele Keys je Anbieter: hinzufügen, ändern, testen, ein- und ausschalten, Reihenfolge festlegen, Verteilung gleichmäßig oder nacheinander. Verbrauch und Limits werden live angezeigt. |
+| **Einstellungen → Darstellung** | Hell oder Dunkel (mit Vorschau) |
+| **Einstellungen → Allgemein & Updates** | Ergebnis-Ordner ändern/öffnen, Update-Prüfung beim Start, „Jetzt nach Updates suchen“, Speicherort der Einstellungen und Keys |
 | **Fortschritt** | Stepper Suche → Details → KI-Bewertung → Endvergleich → Fertig, darunter Fortschrittsbalken und Laufzeit, dazu vier Kacheln (gefunden, Beschreibungen, KI-bewertet, passend) |
 | **Live-Protokoll** | Terminal-Ansicht: jede Seite, jede Wartezeit, jede KI-Anfrage |
 | **Anzeigen** | Tabelle, die sich live füllt: Preis, Ort, Zustand, KI-Werte für Leistung und Preis/Leistung. Grün = passend, grau = aussortiert, gelb = Top-Liste. Klick auf eine Spalte sortiert, Klick auf eine Zeile zeigt die KI-Begründung, Doppelklick öffnet die Anzeige im Browser. |
@@ -95,8 +101,8 @@ Ergebnisse landen in `~/willhaben-ergebnisse/`:
 
 1. **Suche:** alle Ergebnisseiten (200 Anzeigen pro Seite), Bezirke werden in willhaben-Filter übersetzt
 2. **Details:** jede Anzeigenseite → vollständige Beschreibung, Marke, Zustand, Display, privat/Händler (keine Kontaktdaten)
-3. **Marktrecherche** (abschaltbar): Gemini sucht per Google-Suche die *aktuelle* Marktlage. Gefragt sind typische Gebrauchtpreise in Österreich, Neupreise zur Einordnung, Trends und worauf man achten sollte. Das Ergebnis samt Quellen fließt in die Bewertung ein, steht im Bericht und kostet eine zusätzliche Anfrage.
-4. **KI-Bewertung:** Pakete mit 30 Anzeigen an Gemini → Specs, Zustand, Relevanz, Leistung, Preis/Leistung, Warnsignale. Der Verteiler wählt für jede Anfrage den passenden Key. Bei einem Limit oder einem ungültigen Key wechselt er zum nächsten Key, bei Überlastung oder aufgebrauchtem Kontingent vom gewählten Modell auf das Ausweichmodell.
+3. **Marktrecherche** (abschaltbar): Die KI sucht im Web die *aktuelle* Marktlage (Gemini per Google-Suche, Claude und ChatGPT mit eigener Websuche, Perplexity sowieso). Hat der gewählte Anbieter keine Websuche (z. B. Mistral, DeepSeek), übernimmt ein anderer Anbieter, für den ein Key eingetragen ist. Gefragt sind typische Gebrauchtpreise in Österreich, Neupreise zur Einordnung, Trends und worauf man achten sollte. Das Ergebnis samt Quellen fließt in die Bewertung ein, steht im Bericht und kostet eine zusätzliche Anfrage.
+4. **KI-Bewertung:** Pakete mit bis zu 30 Anzeigen an den gewählten Anbieter → Specs, Zustand, Relevanz, Leistung, Preis/Leistung, Warnsignale. Der Verteiler wählt für jede Anfrage den passenden Key. Bei einem Limit oder einem ungültigen Key wechselt er zum nächsten Key, bei Überlastung oder aufgebrauchtem Kontingent vom gewählten Modell auf das Ausweichmodell.
 5. **Endvergleich:** die besten ~3×N Kandidaten werden gegeneinander verglichen → Top-N mit Vor-/Nachteilen
 
 ## Kategorien
@@ -107,7 +113,8 @@ Für jede andere Kategorie oder spezielle Filter: Suche im Browser auf willhaben
 
 ## Hinweise
 
-- **Modell:** Standard ist `gemini-3.5-flash`, bei Überlastung weicht der Agent auf `gemini-3.6-flash` aus. Außerdem berechnet der Agent aus den gefundenen Anzeigen die willhaben-Marktpreise je RAM-Klasse (Median) und gibt sie der KI als Vergleich mit.
+- **Modell:** Standard ist Google Gemini mit `gemini-3.5-flash`, bei Überlastung weicht der Agent auf `gemini-3.6-flash` aus. Vorschläge der anderen Anbieter: ChatGPT `gpt-5-mini`/`gpt-5`, Claude `claude-opus-5-5`/`claude-sonnet-5-5`, Perplexity `sonar-pro`/`sonar`, Mistral `mistral-medium-latest`/`mistral-small-latest`.
+- **Kosten:** Nur Gemini (und Groq) haben einen brauchbaren Gratis-Tarif. Bei den anderen Anbietern wird nach Verbrauch abgerechnet – ein Suchlauf mit ~100 Anzeigen braucht etwa 5–10 Anfragen. Außerdem berechnet der Agent aus den gefundenen Anzeigen die willhaben-Marktpreise je RAM-Klasse (Median) und gibt sie der KI als Vergleich mit.
 - **Free Tier:** Der Agent hält die Limits pro Key ein (Anfragen und Token pro Minute bzw. Tag) und verteilt auf alle Keys. Details: [ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)
 - **Mehrere Konten:** Keys verschiedener eigener Konten nur zum Umgehen der Gratis-Limits verstoßen meist gegen die Nutzungsbedingungen. Es drohen Kontosperren.
 - **Dauer:** Die Listenseiten sind schnell. Die Detailseiten dauern ca. 1 s je 4 Anzeigen. Die KI braucht ca. 7 s je 20 Anzeigen.
@@ -123,9 +130,10 @@ Für jede andere Kategorie oder spezielle Filter: Suche im Browser auf willhaben
 | `pipeline.py` | gemeinsamer Ablauf |
 | `willhaben.py` | Scraper |
 | `rating.py` | KI-Bewertung (Prompts, Pakete, Endvergleich) |
-| `providers.py` | Anbindung an Google Gemini, Fehler- und Limit-Erkennung |
+| `providers.py` | Anbindung an alle KI-Anbieter (Gemini, Claude per `anthropic`-SDK, OpenAI-kompatible), Fehler- und Limit-Erkennung |
 | `keys.py` | Key-Speicher, Verbrauchszähler, automatischer Verteiler |
-| `keys_dialog.py` | Fenster „API-Keys & Limits“ |
+| `einstellungen_dialog.py` | Einstellungsfenster (Zahnrad): KI-Anbieter & Keys, Darstellung, Allgemein & Updates |
+| `keys_dialog.py` | Reiter „KI-Anbieter & Keys“ und Fenster „Key hinzufügen/bearbeiten“ |
 | `updater.py`, `update_dialog.py` | Update-Prüfung und -Installation über GitHub |
 | `about_dialog.py` | Fenster „Über“: Funktionen, Ablauf, Versionsverlauf, Entwickler & Links |
 | `bezirk_dialog.py` | Auswahlfenster für die Bezirke eines Bundeslands |
