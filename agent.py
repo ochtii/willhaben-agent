@@ -5,10 +5,10 @@ Beispiel:
   python agent.py --kategorie laptops --von 200 --bis 600 --bundesland wien \\
       --beschreibung "Laptop für Uni, leicht, guter Akku, 16GB RAM" --top 10
 
-Keys: werden aus den Einstellungen der GUI (~/.config/willhaben-agent/keys.json) und aus den
-Umgebungsvariablen GEMINI_API_KEY / GROQ_API_KEY (mehrere kommagetrennt in *_API_KEYS) gelesen.
-  python agent.py --keys                       # Keys, Limits und Verbrauch anzeigen
-  python agent.py --key-hinzufuegen groq "Privat" gsk_...
+Google-Gemini-Keys werden aus den Einstellungen der GUI (~/.config/willhaben-agent/keys.json) und aus
+den Umgebungsvariablen GEMINI_API_KEY (mehrere kommagetrennt in GEMINI_API_KEYS) gelesen.
+  python agent.py --keys                       # Keys, Modelle, Limits und Verbrauch anzeigen
+  python agent.py --key-hinzufuegen "Privat" AIza...
 """
 
 from __future__ import annotations
@@ -17,30 +17,27 @@ import argparse
 import sys
 
 import settings
-from keys import KeyStore, KIFehler, ANBIETER, maskiert
+from keys import KeyStore, KIFehler, maskiert
 from pipeline import Auftrag, run
-from providers import PROVIDER_TITEL
 from willhaben import CATEGORIES, Abgebrochen
 
 
 def keys_anzeigen(store: KeyStore) -> None:
-    for prov in ANBIETER:
-        print(f"\n{PROVIDER_TITEL[prov]}  (Modell: {store.optionen['modelle'].get(prov)})")
-        eintraege = store.eintraege(prov)
-        if not eintraege:
-            print("  – keine Keys –")
-        for e in eintraege:
-            u, lim = store.nutzung(e["id"]), store.limits(e)
-            def fmt(f):
-                v, q = lim[f]
-                return f"{v}" + ("*" if q == "Annahme" else "") if v else "?"
-            srv = u.get("server", {})
-            rest = f" · Server: noch {srv['rest_anfragen']} Anfr." if "rest_anfragen" in srv else ""
-            print(f"  [{'x' if e.get('aktiv', True) else ' '}] {e['label']:<18} {maskiert(e['key']):<12} "
-                  f"{store.status_text(e):<22} heute {u.get('anfragen', 0)}/{fmt('rpd')} Anfr., "
-                  f"{u.get('token', 0)}/{fmt('tpd')} Token{rest}")
-    print(f"\nReihenfolge: {' → '.join(store.optionen['reihenfolge'])} · Verteilung: {store.optionen['verteilung']}"
-          "\n(* = Annahme, echte Werte in AI Studio bzw. der Groq-Konsole)")
+    o = store.optionen
+    print(f"\nGoogle Gemini – Modell: {o['modelle'].get('gemini')} · Ausweichmodell: "
+          f"{o.get('ausweich', {}).get('gemini') or '–'} · Verteilung: {o['verteilung']}")
+    eintraege = store.eintraege("gemini")
+    if not eintraege:
+        print("  – keine Keys –")
+    for e in eintraege:
+        u, lim = store.nutzung(e["id"]), store.limits(e)
+        def fmt(f):
+            v, q = lim[f]
+            return f"{v}" + ("*" if q == "Annahme" else "") if v else "?"
+        print(f"  [{'x' if e.get('aktiv', True) else ' '}] {e['label']:<18} {maskiert(e['key']):<12} "
+              f"{store.status_text(e):<26} heute {u.get('anfragen', 0)} Anfr., {u.get('token', 0)} Token "
+              f"(Limit/Min: {fmt('rpm')} Anfr., {fmt('tpm')} Token)")
+    print("(* = Annahme, echte Werte in AI Studio unter „Rate limits“)")
 
 
 def main() -> int:
@@ -61,16 +58,15 @@ def main() -> int:
     p.add_argument("--nur-scrapen", action="store_true", help="Nur Anzeigen sammeln, keine KI")
     p.add_argument("--ohne-marktrecherche", action="store_true",
                    help="Aktuelle Marktlage NICHT per Google-Suche recherchieren (spart eine Anfrage)")
-    p.add_argument("--anbieter", default="", help="Reihenfolge, z.B. 'gemini,groq' oder 'groq' (Standard: Einstellungen)")
     p.add_argument("--verteilung", choices=["gleichmaessig", "nacheinander"], help="Keys gleichmäßig oder nacheinander nutzen")
-    p.add_argument("--modell-gemini", default="", help="Gemini-Modell (Standard: auto = bestes Flash-Modell)")
-    p.add_argument("--modell-groq", default="", help="Groq-Modell (Standard: auto)")
-    p.add_argument("--ausweich-gemini", default="", help="Gemini-Ausweichmodell bei Überlastung (Standard: gemini-3.5-flash)")
+    p.add_argument("--modell", default="", help="Gemini-Modell für diesen Lauf (Standard: Einstellungen, z.B. gemini-3.5-flash)")
+    p.add_argument("--ausweichmodell", default="", help="Gemini-Ausweichmodell für diesen Lauf (Standard: Einstellungen)")
+    p.add_argument("--modelle", action="store_true", help="Für den Key verfügbare Gemini-Modelle auflisten")
     p.add_argument("--ausgabe", default=settings.DEFAULT_OUTPUT, help="Ausgabeordner")
     p.add_argument("--keys", action="store_true", help="Keys, Limits und Verbrauch anzeigen und beenden")
     p.add_argument("--version", action="store_true", help="Installierte Version anzeigen")
     p.add_argument("--update", action="store_true", help="Auf GitHub nach einer neuen Version suchen und installieren")
-    p.add_argument("--key-hinzufuegen", nargs=3, metavar=("ANBIETER", "NAME", "KEY"), help="Key speichern und beenden")
+    p.add_argument("--key-hinzufuegen", nargs=2, metavar=("NAME", "KEY"), help="Gemini-Key speichern und beenden")
     args = p.parse_args()
 
     if args.version or args.update:
@@ -98,25 +94,35 @@ def main() -> int:
 
     store = KeyStore()
     if args.key_hinzufuegen:
-        prov, name, key = args.key_hinzufuegen
-        if prov not in ANBIETER:
-            p.error(f"Anbieter muss {' oder '.join(ANBIETER)} sein")
-        store.add(prov, name, key)
-        print(f"✔ {PROVIDER_TITEL[prov]}-Key „{name}“ gespeichert ({maskiert(key)})")
+        name, key = args.key_hinzufuegen
+        store.add("gemini", name, key)
+        print(f"✔ Gemini-Key „{name}“ gespeichert ({maskiert(key)})")
         return 0
     if args.keys:
         keys_anzeigen(store)
         return 0
+    if args.modelle:
+        from providers import GeminiProvider, ProviderFehler
+        aktive = [e for e in store.eintraege("gemini") if e.get("aktiv", True)]
+        if not aktive:
+            print("Kein Gemini-Key eingetragen.")
+            return 1
+        try:
+            for m in GeminiProvider().modelle(aktive[0]["key"]):
+                print(" ", m)
+        except ProviderFehler as e:
+            print(f"❌ {e.meldung}")
+            return 1
+        return 0
 
-    modelle = {k: v for k, v in (("gemini", args.modell_gemini), ("groq", args.modell_groq)) if v}
+    modelle = {"gemini": args.modell} if args.modell else None
     a = Auftrag(suche=args.suche, kategorie=args.kategorie, url=args.url, von=args.von, bis=args.bis,
                 bundeslaender=args.bundesland, bezirke=args.bezirk, area_ids=args.area_id,
                 beschreibung=args.beschreibung, top=args.top, max_seiten=args.max_seiten,
                 max_anzeigen=args.max_anzeigen, ohne_details=args.ohne_details, nur_scrapen=args.nur_scrapen,
                 marktrecherche=not args.ohne_marktrecherche,
-                reihenfolge=[x.strip() for x in args.anbieter.split(",") if x.strip()] or None,
-                modelle=modelle or None, verteilung=args.verteilung, ausgabe=args.ausgabe,
-                ausweich={"gemini": args.ausweich_gemini} if args.ausweich_gemini else None)
+                modelle=modelle, verteilung=args.verteilung, ausgabe=args.ausgabe,
+                ausweich={"gemini": args.ausweichmodell} if args.ausweichmodell else None)
     try:
         result = run(a, store=store)
     except KIFehler as e:

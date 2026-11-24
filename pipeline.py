@@ -32,11 +32,10 @@ class Auftrag:
     ohne_details: bool = False
     nur_scrapen: bool = False
     marktrecherche: bool = True               # aktuelle Marktlage per Google-Suche (Gemini) einbeziehen
-    reihenfolge: list[str] | None = None     # z.B. ["gemini", "groq"]; None = aus den Einstellungen
-    modelle: dict | None = None               # {"gemini": "...", "groq": "auto"}; None = aus den Einstellungen
+    modelle: dict | None = None               # {"gemini": "gemini-3.5-flash"}; None = aus den Einstellungen
     verteilung: str | None = None             # "gleichmaessig" | "nacheinander"
     ausweich: dict | None = None              # Ausweichmodelle bei Überlastung, z.B. {"gemini": "gemini-3.5-flash"}
-    paketgroesse: int | None = None           # None = je nach Anbieter (Gemini 20, Groq 6)
+    paketgroesse: int | None = None           # None = Standard (30 Anzeigen pro KI-Anfrage)
     ausgabe: str = "ergebnisse"
 
 
@@ -145,7 +144,7 @@ def run(a: Auftrag, ev: Ereignisse | None = None, stop: threading.Event | None =
     bewerter = None
     if not a.nur_scrapen:
         store = store or KeyStore()
-        backend = Verteiler(store, a.reihenfolge, a.modelle, a.verteilung, log=log, stop=stop, on_update=ev.keys,
+        backend = Verteiler(store, a.modelle, a.verteilung, log=log, stop=stop, on_update=ev.keys,
                             ausweich=a.ausweich)
         if not backend.anbieter_jetzt():
             from keys import KIFehler

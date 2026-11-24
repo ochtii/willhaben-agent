@@ -4,7 +4,7 @@ Stufe 1 (alle Anzeigen, in Paketen): Specs/Zustand extrahieren, Relevanz prüfen
          Leistung und Preis/Leistung bewerten, Warnsignale markieren.
 Stufe 2 (die besten Kandidaten): Gesamtvergleich -> Top-N mit Vor-/Nachteilen und Fazit.
 
-Welche KI (Gemini/Groq) und welcher Key verwendet wird, entscheidet der Verteiler in keys.py.
+Welcher Gemini-Key und welches Modell verwendet wird, entscheidet der Verteiler in keys.py.
 """
 
 from __future__ import annotations
@@ -157,7 +157,7 @@ class Bewerter:
     def score(self, listings: list[Listing], wunsch: str, price_from, price_to,
               batch_size: int | None = None, desc_chars: int | None = None,
               on_batch: Callable[[int, int, list[Bewertung]], None] | None = None) -> dict[str, Bewertung]:
-        """Paketgröße und Textlänge richten sich nach dem gerade aktiven Anbieter (Gemini: groß, Groq: klein)."""
+        """Paketgröße und Textlänge kommen aus der Anbieter-Konfiguration (providers.GeminiProvider)."""
         crit = self._krit(wunsch, price_from, price_to)
         out: dict[str, Bewertung] = {}
         i, n = 0, 0

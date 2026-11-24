@@ -1,6 +1,6 @@
-"""KI-Anbieter: Google Gemini und Groq.
+"""KI-Anbieter: Google Gemini.
 
-Jeder Anbieter hat eine einheitliche Schnittstelle:
+Schnittstelle:
     call(key, model, prompt, schema, heavy) -> Antwort(parsed, tokens, info)
 und meldet Probleme als ProviderFehler mit einer `art`:
     minute       Limit pro Minute erreicht   -> kurz warten oder anderen Key nehmen
@@ -23,7 +23,6 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-import requests
 from pydantic import BaseModel
 
 try:
@@ -96,7 +95,7 @@ class GeminiProvider:
     titel = "Google Gemini"
     key_url = "https://aistudio.google.com/apikey"
     limits_url = "https://aistudio.google.com/usage"
-    standard_modell = "gemini-3.5-flash"  # gutes Preis/Leistungs-Modell; "auto" = neuestes Flash-Modell
+    standard_modell = "gemini-3.5-flash"  # gutes Preis/Leistungs-Modell
     ausweich_modell = "gemini-3.6-flash"  # wenn das Hauptmodell überlastet ist / fehlt
     kann_recherche = True                 # Google-Suche (Grounding) für die aktuelle Marktlage
     # Free Tier (beobachtet Nov. 2026): nur ca. 20 Anfragen pro Tag und MODELL, jedes Modell hat ein eigenes
@@ -127,7 +126,8 @@ class GeminiProvider:
             for m in self._client(key).models.list():
                 name = (m.name or "").removeprefix("models/")
                 if "generateContent" in (m.supported_actions or []) and name.startswith("gemini") and not any(
-                        x in name for x in ("tts", "image", "embedding", "audio", "live", "robotics", "computer")):
+                        x in name for x in ("tts", "image", "embedding", "audio", "live", "robotics", "computer",
+                                         "banana", "omni")):
                     out.append(name)
             return sorted(set(out))
         except self._errors.APIError as e:
@@ -233,152 +233,10 @@ class GeminiProvider:
         return Antwort(parsed, tokens, {})
 
 
-# --------------------------------------------------------------------------- Groq
-
-class GroqProvider:
-    name = "groq"
-    titel = "Groq"
-    key_url = "https://console.groq.com/keys"
-    limits_url = "https://console.groq.com/settings/limits"
-    standard_modell = "auto"
-    ausweich_modell = "llama-3.3-70b-versatile"
-    kann_recherche = False      # keine Websuche -> Marktlage nur aus den willhaben-Daten
-    # Annahmen bis der Server echte Werte liefert (Header x-ratelimit-*)
-    standard_limits = {"rpm": 30, "rpd": 1000, "tpm": 6000, "tpd": 100_000}
-    # Groq-Free-Tier hat kleine Token-pro-Minute-Limits -> kleinere Pakete
-    paket = 6
-    text_zeichen = 700
-    final_zeichen = 450
-    final_max = 16
-    URL = "https://api.groq.com/openai/v1"
-    BEVORZUGT = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "moonshotai/kimi-k2-instruct-0905",
-                 "moonshotai/kimi-k2-instruct", "qwen/qwen3-32b", "meta-llama/llama-4-maverick-17b-128e-instruct",
-                 "openai/gpt-oss-20b", "llama-3.1-8b-instant"]
-
-    @staticmethod
-    def tageswechsel() -> float:
-        """Für die lokale Tageszählung: Mitternacht UTC (Groq selbst rechnet rollierend, siehe Header)."""
-        now = datetime.now(timezone.utc)
-        return (datetime(now.year, now.month, now.day, tzinfo=timezone.utc) + timedelta(days=1)).timestamp()
-
-    def __init__(self):
-        self.s = requests.Session()
-
-    def _headers(self, key):
-        return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-
-    def modelle(self, key: str) -> list[str]:
-        try:
-            r = self.s.get(f"{self.URL}/models", headers=self._headers(key), timeout=20)
-        except requests.RequestException as e:
-            raise ProviderFehler("ueberlastet", f"Netzwerkfehler: {e}", retry_after=5.0) from e
-        if r.status_code != 200:
-            raise self._fehler(r)
-        namen = [m.get("id") for m in r.json().get("data", []) if m.get("active", True)]
-        return sorted(n for n in namen if n and not re.search(r"whisper|guard|tts|playai|orpheus|compound|prompt", n))
-
-    def bestes_modell(self, namen: list[str]) -> str | None:
-        for n in self.BEVORZUGT:
-            if n in namen:
-                return n
-        big = [n for n in namen if re.search(r"70b|120b|maverick|kimi|32b", n)]
-        return (big or namen or [None])[0]
-
-    @staticmethod
-    def _info(r: requests.Response) -> dict:
-        h = r.headers
-        def num(k):
-            try:
-                return int(float(h.get(k)))
-            except (TypeError, ValueError):
-                return None
-        info = {
-            "rpd": num("x-ratelimit-limit-requests"),
-            "rest_anfragen": num("x-ratelimit-remaining-requests"),
-            "reset_anfragen": _dauer(h.get("x-ratelimit-reset-requests")),
-            "tpm": num("x-ratelimit-limit-tokens"),
-            "rest_token": num("x-ratelimit-remaining-tokens"),
-            "reset_token": _dauer(h.get("x-ratelimit-reset-tokens")),
-            "zeit": time.time(),
-        }
-        return {k: v for k, v in info.items() if v is not None}
-
-    def _fehler(self, r: requests.Response) -> ProviderFehler:
-        try:
-            err = r.json().get("error", {})
-        except ValueError:
-            err = {}
-        msg = err.get("message") or r.text[:300]
-        code = err.get("code") or ""
-        info = self._info(r)
-        retry = _dauer(r.headers.get("retry-after"))
-        s = r.status_code
-        if s in (401,) or code == "invalid_api_key":
-            return ProviderFehler("key", "Key ungültig", info=info)
-        if s == 403:
-            if re.search(r"region|country|location", msg, re.I):
-                return ProviderFehler("region", "In deiner Region nicht nutzbar", info=info)
-            return ProviderFehler("key", f"Zugriff verweigert: {msg}", info=info)
-        if s == 404 or code == "model_not_found" or "model_decommissioned" in str(code):
-            return ProviderFehler("modell", f"Modell nicht verfügbar: {msg}", info=info)
-        if s == 413 or code in ("request_too_large", "context_length_exceeded") or "too large" in msg.lower():
-            return ProviderFehler("zu_gross", "Anfrage zu groß für das Limit", info=info)
-        if s == 429:
-            if re.search(r"per day|\(TPD\)|\(RPD\)", msg, re.I):
-                wait = retry or _dauer((re.search(r"try again in ([\dhms.]+)", msg) or [None, None])[1]) or 3600
-                return ProviderFehler("tag", "Tageslimit erreicht", reset_at=time.time() + wait, info=info)
-            wait = retry or _dauer((re.search(r"try again in ([\dhms.]+)", msg) or [None, None])[1]) or 20
-            return ProviderFehler("minute", "Limit pro Minute erreicht", retry_after=wait, info=info)
-        if s == 400 and ("json_validate_failed" in str(code) or "json" in msg.lower()):
-            return ProviderFehler("ausgabe", "Antwort war kein gültiges JSON", info=info)
-        if s in (498, 500, 502, 503, 504):
-            return ProviderFehler("ueberlastet", f"Server ausgelastet ({s})", retry_after=retry or 10, info=info)
-        return ProviderFehler("sonstiges", f"Groq-Fehler {s}: {msg}", info=info)
-
-    def _post(self, key, body) -> requests.Response:
-        try:
-            return self.s.post(f"{self.URL}/chat/completions", headers=self._headers(key), json=body, timeout=180)
-        except requests.RequestException as e:
-            raise ProviderFehler("ueberlastet", f"Netzwerkfehler: {e}", retry_after=5.0) from e
-
-    def testen(self, key: str, model: str) -> dict:
-        """Mini-Anfrage (1 Token), damit Groq die aktuellen Limits/Restwerte mitschickt."""
-        namen = self.modelle(key)
-        m = model if model and model != "auto" and model in namen else self.bestes_modell(namen)
-        r = self._post(key, {"model": m, "messages": [{"role": "user", "content": "ok"}], "max_completion_tokens": 1})
-        info = self._info(r)
-        if r.status_code not in (200, 429):
-            raise self._fehler(r)
-        return {"ok": True, "text": f"{len(namen)} Modelle, Test mit {m}", "modelle": namen, "info": info}
-
-    def call(self, key: str, model: str, prompt: str, schema: type[BaseModel], heavy: bool) -> Antwort:
-        body = {
-            "model": model,
-            "messages": [{"role": "system", "content": _system()},
-                         {"role": "user", "content": prompt + schema_hinweis(schema)}],
-            "temperature": 0.3 if heavy else 0.1,
-            "max_completion_tokens": 6000 if heavy else 3500,
-            "response_format": {"type": "json_object"},
-        }
-        r = self._post(key, body)
-        if r.status_code != 200:
-            raise self._fehler(r)
-        info = self._info(r)
-        data = r.json()
-        tokens = (data.get("usage") or {}).get("total_tokens", 0)
-        try:
-            content = data["choices"][0]["message"]["content"] or ""
-            parsed = schema.model_validate_json(_json_aus_text(content))
-        except Exception as e:
-            raise ProviderFehler("ausgabe", f"Antwort nicht lesbar ({type(e).__name__})",
-                                 info={**info, "tokens": tokens}) from e
-        return Antwort(parsed, tokens, info)
-
-
 def _system() -> str:
     from rating import SYSTEM
     return SYSTEM
 
 
-PROVIDER_KLASSEN = {"gemini": GeminiProvider, "groq": GroqProvider}
-PROVIDER_TITEL = {"gemini": GeminiProvider.titel, "groq": GroqProvider.titel}
+PROVIDER_KLASSEN = {"gemini": GeminiProvider}
+PROVIDER_TITEL = {"gemini": GeminiProvider.titel}

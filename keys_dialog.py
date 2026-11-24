@@ -1,4 +1,4 @@
-"""Einstellungsfenster: API-Keys & Limits (mehrere Keys pro Anbieter, Verbrauch live)."""
+"""Einstellungsfenster: API-Keys & Limits (mehrere Google-Gemini-Keys, Modellwahl, Verbrauch live)."""
 
 from __future__ import annotations
 
@@ -8,17 +8,12 @@ import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from keys import KeyStore, ANBIETER, LIMIT_FELDER, maskiert, uhrzeit
+from keys import KeyStore, LIMIT_FELDER, maskiert, uhrzeit
 from providers import PROVIDER_KLASSEN, PROVIDER_TITEL, ProviderFehler
 
-REIHENFOLGEN = {
-    "Gemini, bei Limit → Groq": ["gemini", "groq"],
-    "Groq, bei Limit → Gemini": ["groq", "gemini"],
-    "Nur Gemini": ["gemini"],
-    "Nur Groq": ["groq"],
-}
+PROV = "gemini"                       # einziger Anbieter
 HINWEIS_KONTEN = ("Hinweis: Mehrere eigene Konten nur zum Vervielfachen der Gratis-Limits verstoßen meist gegen die "
-                  "Nutzungsbedingungen von Google/Groq und können zur Sperre aller beteiligten Konten führen.")
+                  "Nutzungsbedingungen von Google und können zur Sperre aller beteiligten Konten führen.")
 
 
 def _zahl(n) -> str:
@@ -82,8 +77,7 @@ class KeyDialog(tk.Toplevel):
             hint = f"Annahme: {_zahl(std.get(feld))}" if std.get(feld) else "keine Annahme"
             ttk.Label(lf, text=hint, foreground="#777").grid(row=i, column=2, sticky="w")
             self.lim_vars[feld] = v
-        quelle = ("Die echten Werte stehen in AI Studio unter „Rate limits“." if provider == "gemini" else
-                  "Groq meldet Anfragen/Tag und Token/Minute bei jeder Anfrage selbst – meist leer lassen.")
+        quelle = "Die echten Werte stehen in AI Studio unter „Rate limits“."
         ttk.Label(lf, text=quelle, foreground="#777", wraplength=360).grid(row=4, column=0, columnspan=3, sticky="w", pady=(4, 0))
 
         self.lbl_test = ttk.Label(f, text="", wraplength=380)
@@ -170,80 +164,83 @@ class KeyManager(tk.Toplevel):
         ttk.Button(unten, text="Schließen", command=self.close).pack(side="right")
         ttk.Label(unten, text=HINWEIS_KONTEN, foreground="#8a6d00", wraplength=900, justify="left").pack(side="left")
         ttk.Label(main, text="API-Keys & Limits", font=("TkDefaultFont", 14, "bold")).pack(anchor="w")
-        ttk.Label(main, text="Mehrere Keys pro Anbieter möglich. Der Agent verteilt die Anfragen automatisch und "
-                             "wechselt bei erreichtem Limit zum nächsten Key bzw. Anbieter.",
+        ttk.Label(main, text="Google Gemini – mehrere Keys möglich. Der Agent verteilt die Anfragen automatisch auf die "
+                             "Keys und wechselt bei erreichtem Limit zum nächsten Key.",
                   foreground="#666").pack(anchor="w", pady=(0, 8))
+        kl = PROVIDER_KLASSEN[PROV]
+        self.trees, self.summary = {}, {}
 
-        top = ttk.LabelFrame(main, text="Strategie", padding=8)
-        top.pack(fill="x")
-        ttk.Label(top, text="Anbieter-Reihenfolge").grid(row=0, column=0, sticky="w")
-        cur = store.optionen.get("reihenfolge", ["gemini", "groq"])
-        self.var_reihe = tk.StringVar(value=next((k for k, v in REIHENFOLGEN.items() if v == cur), list(REIHENFOLGEN)[0]))
-        cb = ttk.Combobox(top, textvariable=self.var_reihe, values=list(REIHENFOLGEN), state="readonly", width=28)
-        cb.grid(row=0, column=1, padx=8, sticky="w")
-        cb.bind("<<ComboboxSelected>>", lambda e: self._optionen_speichern())
-        ttk.Label(top, text="Keys nutzen").grid(row=0, column=2, sticky="w", padx=(20, 0))
+        # --- Modellwahl
+        mf = ttk.LabelFrame(main, text="KI-Modell (Google Gemini)", padding=8)
+        mf.pack(fill="x")
+        ttk.Label(mf, text="Modell").grid(row=0, column=0, sticky="w")
+        self.var_modell = tk.StringVar(value=store.optionen["modelle"].get(PROV, kl.standard_modell))
+        self.cb_modell = ttk.Combobox(mf, textvariable=self.var_modell, width=30, state="readonly",
+                                      values=[self.var_modell.get()])
+        self.cb_modell.grid(row=0, column=1, padx=(6, 16), sticky="w")
+        ttk.Label(mf, text="Ausweichmodell").grid(row=0, column=2, sticky="w")
+        self.var_ausweich = tk.StringVar(value=store.optionen.get("ausweich", {}).get(PROV, kl.ausweich_modell))
+        self.cb_ausweich = ttk.Combobox(mf, textvariable=self.var_ausweich, width=30, state="readonly",
+                                        values=[self.var_ausweich.get()])
+        self.cb_ausweich.grid(row=0, column=3, padx=(6, 16), sticky="w")
+        for cb in (self.cb_modell, self.cb_ausweich):
+            cb.bind("<<ComboboxSelected>>", lambda e: self._optionen_speichern())
+        ttk.Button(mf, text="Modellliste aktualisieren", command=self._modelle_laden).grid(row=0, column=4, sticky="w")
+        self.lbl_modelle = ttk.Label(mf, text="", foreground="#666", wraplength=1050, justify="left")
+        self.lbl_modelle.grid(row=1, column=0, columnspan=5, sticky="w", pady=(6, 0))
+        ttk.Label(mf, text="Das Ausweichmodell wird nur verwendet, wenn das gewählte Modell überlastet ist, nicht "
+                           "verfügbar ist oder sein Tageskontingent aufgebraucht hat. Andere Modelle werden nie "
+                           "automatisch verwendet.", foreground="#777", wraplength=1050, justify="left").grid(
+            row=2, column=0, columnspan=5, sticky="w", pady=(2, 0))
+
+        # --- Strategie
+        top = ttk.LabelFrame(main, text="Mehrere Keys", padding=8)
+        top.pack(fill="x", pady=(8, 0))
+        ttk.Label(top, text="Keys nutzen").grid(row=0, column=0, sticky="w")
         self.var_vert = tk.StringVar(value=store.optionen.get("verteilung", "gleichmaessig"))
         ttk.Radiobutton(top, text="gleichmäßig verteilen", value="gleichmaessig", variable=self.var_vert,
-                        command=self._optionen_speichern).grid(row=0, column=3, padx=6)
+                        command=self._optionen_speichern).grid(row=0, column=1, padx=6)
         ttk.Radiobutton(top, text="nacheinander (erst Key 1 aufbrauchen)", value="nacheinander",
-                        variable=self.var_vert, command=self._optionen_speichern).grid(row=0, column=4)
+                        variable=self.var_vert, command=self._optionen_speichern).grid(row=0, column=2)
 
-        self.nb = ttk.Notebook(main)
-        self.nb.pack(fill="both", expand=True, pady=(10, 0))
-        self.trees, self.modell_vars, self.modell_cbs, self.summary = {}, {}, {}, {}
-        self.ausweich_vars, self.ausweich_cbs = {}, {}
-        for prov in ANBIETER:
-            self._tab(prov)
+        # --- Keys
+        kf = ttk.LabelFrame(main, text="Keys", padding=8)
+        kf.pack(fill="both", expand=True, pady=(8, 0))
+        self._keys_bereich(kf)
 
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.refresh()
         self._tick()
+        if any(e.get("aktiv", True) for e in store.eintraege(PROV)):
+            self.after(200, lambda: self._modelle_laden(still=True))
+        else:
+            self.lbl_modelle.configure(text="Erst einen Key hinzufügen – danach werden die für deinen Key "
+                                            "verfügbaren Modelle hier zur Auswahl angezeigt.")
 
     # ---------------------------------------------------------------- Aufbau
-    def _tab(self, prov: str):
-        tab = ttk.Frame(self.nb, padding=8)
-        self.nb.add(tab, text=f"  {PROVIDER_TITEL[prov]}  ")
+    def _keys_bereich(self, tab):
+        prov = PROV
         kl = PROVIDER_KLASSEN[prov]
         row = ttk.Frame(tab)
         row.pack(fill="x")
-        ttk.Label(row, text="Modell").pack(side="left")
-        v = tk.StringVar(value=self.store.optionen["modelle"].get(prov, kl.standard_modell))
-        cb = ttk.Combobox(row, textvariable=v, width=34,
-                          values=[kl.standard_modell])
-        cb.pack(side="left", padx=6)
-        cb.bind("<<ComboboxSelected>>", lambda e: self._optionen_speichern())
-        cb.bind("<FocusOut>", lambda e: self._optionen_speichern())
-        self.modell_vars[prov], self.modell_cbs[prov] = v, cb
-        ttk.Button(row, text="Modelle laden", command=lambda: self._modelle_laden(prov)).pack(side="left")
-        ttk.Label(row, text="Ausweichmodell").pack(side="left", padx=(14, 0))
-        av = tk.StringVar(value=self.store.optionen.get("ausweich", {}).get(prov, kl.ausweich_modell))
-        acb = ttk.Combobox(row, textvariable=av, width=26, values=[kl.ausweich_modell])
-        acb.pack(side="left", padx=6)
-        acb.bind("<<ComboboxSelected>>", lambda e: self._optionen_speichern())
-        acb.bind("<FocusOut>", lambda e: self._optionen_speichern())
-        self.ausweich_vars[prov], self.ausweich_cbs[prov] = av, acb
-        links = [("Key erstellen ↗", kl.key_url), ("Limits online ↗", kl.limits_url)]
-        if prov == "gemini":
-            links.append(("Guthaben in AI Studio ↗", "https://ai.studio/projects"))
-        for text, url in links:
+        for text, url in (("Key erstellen ↗", kl.key_url), ("Limits online ↗", kl.limits_url),
+                          ("Guthaben in AI Studio ↗", "https://ai.studio/projects")):
             l = ttk.Label(row, text=text, foreground="#0b6bcb", cursor="hand2")
             l.pack(side="right", padx=6)
             l.bind("<Button-1>", lambda e, u=url: webbrowser.open(u))
 
-        cols = ("key", "status", "anfragen", "token", "minute", "server", "gesamt")
+        cols = ("key", "status", "anfragen", "token", "minute", "gesamt")
         tree = ttk.Treeview(tab, columns=cols, show="tree headings", height=6, selectmode="browse")
         tree.heading("#0", text="Name")
-        tree.column("#0", width=130)
-        for c, t, w in (("key", "Key", 90), ("status", "Status", 135), ("anfragen", "Anfragen heute", 110),
-                        ("token", "Token heute", 105), ("minute", "Pro Minute (Anfr. · Token)", 165),
-                        ("server", "Live vom Server", 255), ("gesamt", "Gesamt", 75)):
+        tree.column("#0", width=150)
+        for c, t, w in (("key", "Key", 100), ("status", "Status", 300), ("anfragen", "Anfragen heute", 120),
+                        ("token", "Token heute", 120), ("minute", "Pro Minute (Anfr. · Token)", 170),
+                        ("gesamt", "Gesamt", 90)):
             tree.heading(c, text=t)
             tree.column(c, width=w, anchor="w")
         tree.tag_configure("aus", foreground="#999")
         tree.tag_configure("problem", foreground="#b00020")
         tree.tag_configure("limit", foreground="#a0522d")
-        tree.tag_configure("aktiv", background="#e9f7ec")
         tree.pack(fill="both", expand=True, pady=6)
         tree.bind("<Double-1>", lambda e: self._bearbeiten(prov))
         self.trees[prov] = tree
@@ -258,12 +255,10 @@ class KeyManager(tk.Toplevel):
             ttk.Button(bf, text=text, command=cmd).pack(side="left", padx=(0, 4))
         self.summary[prov] = ttk.Label(tab, text="", foreground="#444")
         self.summary[prov].pack(anchor="w", pady=(6, 0))
-        legende = ("* = Annahme (Google veröffentlicht die Free-Tier-Limits nicht fest; echte Werte in AI Studio → "
-                   "„Rate limits“, dann beim Key eintragen). Tageszähler wird um Mitternacht pazifischer Zeit "
-                   "(9:00 Uhr bei uns) zurückgesetzt." if prov == "gemini" else
-                   "Groq meldet Anfragen/Tag und Token/Minute live bei jeder Antwort („Live vom Server“). "
-                   "* = Annahme bis zur ersten Antwort. Free Tier: wenige tausend Token pro Minute → kleine Pakete.")
-        ttk.Label(tab, text=legende, foreground="#777", wraplength=1000, justify="left").pack(anchor="w")
+        ttk.Label(tab, text="* = Annahme (Google veröffentlicht die Limits nicht fest; echte Werte in AI Studio → "
+                            "„Rate limits“, dann beim Key eintragen). Der Tageszähler wird um Mitternacht pazifischer "
+                            "Zeit (9:00 Uhr bei uns) zurückgesetzt.",
+                  foreground="#777", wraplength=1050, justify="left").pack(anchor="w")
 
     # ---------------------------------------------------------------- Anzeige
     def _zeile(self, e: dict) -> tuple:
@@ -276,24 +271,16 @@ class KeyManager(tk.Toplevel):
 
         def von(used, f):
             return f"{_zahl(used)} / {lim_txt(f)}" if lim[f][0] else _zahl(used)
-        srv = u.get("server", {})
-        live = ""
-        if srv:
-            alter = time.time() - srv.get("zeit", 0)
-            teile = []
-            if "rest_anfragen" in srv:
-                teile.append(f"noch {_zahl(srv['rest_anfragen'])}/{_zahl(srv.get('rpd'))} Anfr.")
-            if "rest_token" in srv:
-                teile.append(f"{_zahl(srv['rest_token'])}/{_zahl(srv.get('tpm'))} Tok/min")
-            if teile:
-                live = " · ".join(teile) + (f" (vor {_sek(alter)})" if alter > 5 else "")
-        if not live and u.get("fehler") and u.get("status") not in ("ok", ""):
-            live = u["fehler"]
-        return (maskiert(e["key"]), s.status_text(e),
+        status = s.status_text(e)
+        gesperrt = [m for m, t in u.get("modell_gesperrt", {}).items() if t > time.time()]
+        if gesperrt:
+            status += " – aufgebraucht: " + ", ".join(gesperrt)
+        elif u.get("fehler") and u.get("status") not in ("ok", "") and status != "bereit":
+            status += f" – {u['fehler']}"
+        return (maskiert(e["key"]), status,
                 von(u.get("anfragen", 0), "rpd"),
                 von(u.get("token", 0), "tpd"),
                 f"{lim_txt('rpm')} · {lim_txt('tpm')}",
-                live,
                 f"{u.get('gesamt_anfragen', 0)} Anfr.")
 
     def refresh(self):
@@ -304,8 +291,9 @@ class KeyManager(tk.Toplevel):
                 ids.append(e["id"])
                 vals = self._zeile(e)
                 st = vals[1]
-                tag = ("aus",) if st == "deaktiviert" else ("problem",) if st in ("ungültig", "Region/Abrechnung") else \
-                      ("limit",) if st.startswith(("Tageslimit", "Pause")) else ()
+                tag = ("aus",) if st == "deaktiviert" else \
+                      ("problem",) if st.startswith(("ungültig", "Region/Abrechnung", "Guthaben leer")) else \
+                      ("limit",) if st.startswith(("Tageslimit", "Pause")) or "aufgebraucht" in st else ()
                 label = e["label"] + ("  (Umgebung)" if e.get("quelle") == "umgebung" else "")
                 if tree.exists(e["id"]):
                     tree.item(e["id"], text=label, values=vals, tags=tag)
@@ -413,34 +401,45 @@ class KeyManager(tk.Toplevel):
                 "Key-Test", "\n".join(ergebnisse), parent=self))
         threading.Thread(target=work, daemon=True).start()
 
-    def _modelle_laden(self, prov):
-        keys = [e for e in self.store.eintraege(prov) if e.get("aktiv", True)]
+    def _modelle_laden(self, still: bool = False):
+        keys = [e for e in self.store.eintraege(PROV) if e.get("aktiv", True)]
         if not keys:
-            messagebox.showinfo("Modelle", "Bitte zuerst einen Key hinzufügen.", parent=self)
+            if not still:
+                messagebox.showinfo("Modelle", "Bitte zuerst einen Key hinzufügen.", parent=self)
             return
-        kl = PROVIDER_KLASSEN[prov]
+        self.lbl_modelle.configure(text="Lade die für deinen Key verfügbaren Modelle …", foreground="#666")
 
         def work():
             try:
-                p = kl()
-                namen = p.modelle(keys[0]["key"])
-                vorschlag = p.bestes_modell(namen)
-                werte = [kl.standard_modell] + namen
-                msg = f"{len(namen)} Modelle geladen. Empfehlung: {vorschlag}"
-                self.after(0, lambda: (self.modell_cbs[prov].configure(values=werte),
-                                       self.ausweich_cbs[prov].configure(values=namen),
-                                       messagebox.showinfo("Modelle", msg, parent=self)))
+                namen = PROVIDER_KLASSEN[PROV]().modelle(keys[0]["key"])
+                self.after(0, lambda: self.winfo_exists() and self._modelle_anzeigen(namen))
             except ProviderFehler as f:
-                self.after(0, lambda: messagebox.showerror("Modelle", f.meldung, parent=self))
+                self.after(0, lambda: self.winfo_exists() and self.lbl_modelle.configure(
+                    text=f"Modellliste nicht abrufbar: {f.meldung}", foreground="#b00020"))
         threading.Thread(target=work, daemon=True).start()
+
+    def _modelle_anzeigen(self, namen: list[str]):
+        self.cb_modell.configure(values=namen)
+        self.cb_ausweich.configure(values=["(kein Ausweichmodell)"] + namen)
+        warn = [f"„{v.get()}“" for v in (self.var_modell, self.var_ausweich)
+                if v.get() and v.get() not in namen and v.get() != "(kein Ausweichmodell)"]
+        if warn:
+            self.lbl_modelle.configure(text=f"⚠ {' und '.join(warn)} ist für deinen Key nicht verfügbar – bitte "
+                                            f"ein Modell aus der Liste wählen ({len(namen)} verfügbar).",
+                                       foreground="#b00020")
+        else:
+            self.lbl_modelle.configure(text=f"✔ {len(namen)} Modelle für deinen Key verfügbar. Empfehlung: "
+                                            "gemini-3.5-flash (gut & günstig), Ausweich: gemini-3.6-flash.",
+                                       foreground="#1b7a2f")
 
     def _optionen_speichern(self):
         with self.store.lock:
-            self.store.optionen["reihenfolge"] = REIHENFOLGEN[self.var_reihe.get()]
             self.store.optionen["verteilung"] = self.var_vert.get()
-            self.store.optionen["modelle"] = {p: (v.get().strip() or PROVIDER_KLASSEN[p].standard_modell)
-                                              for p, v in self.modell_vars.items()}
-            self.store.optionen["ausweich"] = {p: v.get().strip() for p, v in self.ausweich_vars.items()}
+            self.store.optionen["modelle"] = {PROV: self.var_modell.get().strip() or PROVIDER_KLASSEN[PROV].standard_modell}
+            aw = self.var_ausweich.get().strip()
+            self.store.optionen["ausweich"] = {PROV: "" if aw == "(kein Ausweichmodell)" else aw}
+            if self.lbl_modelle.cget("foreground") == "#b00020" and self.cb_modell.cget("values"):
+                self._modelle_anzeigen(list(self.cb_modell.cget("values")))
             self.store.save()
         self.on_change()
 

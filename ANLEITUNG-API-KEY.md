@@ -1,10 +1,10 @@
-# Kostenlose API-Keys holen (Gemini und Groq)
+# Google-Gemini-API-Key holen
 
-Der Agent nutzt **Google Gemini** und als Ausweich-Anbieter **Groq**. Beide sind kostenlos nutzbar, beide Keys trägt man im Programm unter **Einstellungen → API-Keys & Limits** ein (Strg+K). Man kann pro Anbieter beliebig viele Keys eintragen.
+Der Agent nutzt **Google Gemini**. Den Key trägt man im Programm unter **Einstellungen → API-Keys & Limits** ein (Strg+K). Man kann beliebig viele Keys eintragen, der Agent verteilt die Anfragen dann automatisch.
 
 ---
 
-# Teil 1: Gemini-Key (Google)
+# Gemini-Key erstellen
 
 Dauer: ca. 3 Minuten. Du brauchst nur ein Google-Konto (z. B. dein Gmail-Konto).
 
@@ -39,10 +39,12 @@ Im Agenten geht das auch direkt: Klick auf **„→ Key holen (kostenlos)“** i
 
 1. Den Willhaben KI-Agenten starten.
 2. **Einstellungen → API-Keys & Limits** öffnen (oder Strg+K, oder links der Knopf „API-Keys & Limits verwalten …“).
-3. Reiter **„Google Gemini“** → **„＋ Hinzufügen“**.
+3. Im Bereich **„Keys“** auf **„＋ Hinzufügen“** klicken.
 4. Einen Namen vergeben (z. B. „Privat“), den Key einfügen (Strg+V) und auf **„Testen“** klicken. Bei Erfolg auf **„Speichern“** klicken.
    Gespeichert wird der Key in `~/.config/willhaben-agent/keys.json`, nur für deinen Benutzer lesbar.
-5. Voreingestellt ist `gemini-3.5-flash`, ein gutes und günstiges Modell. Ist es überlastet, weicht der Agent automatisch auf `gemini-3.6-flash` aus. Beides lässt sich im Key-Manager ändern.
+5. Oben unter **„KI-Modell“** stehen danach alle Modelle, die für deinen Key verfügbar sind. Wähle ein **Modell** und ein **Ausweichmodell**.
+   - Voreingestellt sind `gemini-3.5-flash` (gut und günstig) und `gemini-3.6-flash`.
+   - Das Ausweichmodell springt nur ein, wenn das gewählte Modell überlastet ist, nicht verfügbar ist oder sein Tageskontingent aufgebraucht hat. Andere Modelle verwendet der Agent nie von sich aus.
 
 Alternativ für die Terminal-Version eine Umgebungsvariable setzen (mehrere Keys kommagetrennt in `GEMINI_API_KEYS`):
 
@@ -70,52 +72,34 @@ Google hat den Gratis-Zugang in der EU früher zeitweise eingeschränkt. Kommt b
 2. In der Google Cloud Console unter **Abrechnung → Budgets & Benachrichtigungen** ein Budget von z. B. **5 €** mit Warn-Mail setzen.
 3. Flash-Modelle sind sehr günstig: Ein Lauf kostet grob wenige Cent. Das ist eine Schätzung, aktuelle Preise stehen unter https://ai.google.dev/pricing.
 
-Oder einfach mit **Groq** weitermachen (siehe Teil 2).
-
----
-
-# Teil 2: Groq-Key (Ausweich-Anbieter)
-
-Groq ist ein zweiter kostenloser Anbieter. Er übernimmt automatisch, wenn Gemini überlastet oder aufgebraucht ist. Groq ist sehr schnell, hat im Free Tier aber kleine Limits pro Minute. Der Agent schickt ihm deshalb kleinere Pakete.
-
-1. **https://console.groq.com/keys** öffnen (im Programm: Hilfe → „Groq-Key erstellen“).
-2. **Anmelden:** mit Google-Konto, GitHub oder E-Mail. Keine Kreditkarte nötig.
-3. Auf **„Create API Key“** klicken, einen Namen vergeben (z. B. `willhaben-agent`) und auf **„Submit“** klicken.
-4. Den Key **sofort kopieren**. Er beginnt mit `gsk_…` und wird nur einmal angezeigt.
-5. Im Agenten: **API-Keys & Limits → Reiter „Groq“ → „＋ Hinzufügen“** → einfügen, **„Testen“** klicken, **„Speichern“** klicken.
-   Beim Testen fragt der Agent Groq nach den echten Limits. Die stehen dann in der Spalte **„Live vom Server“**: Anfragen pro Tag (Rest) und Token pro Minute.
-
-Für die Terminal-Version: `export GROQ_API_KEY="gsk_..."`
-
 ---
 
 # Der Key- und Limit-Manager
 
 | Spalte | Bedeutung |
 |---|---|
-| **Status** | bereit · Pause (Minutenlimit, zählt herunter) · Tageslimit bis HH:MM · ungültig · deaktiviert |
+| **Status** | bereit · Pause (Minutenlimit, zählt herunter) · Tageslimit bis HH:MM · ungültig · Guthaben leer · deaktiviert, dazu welche Modelle für heute aufgebraucht sind |
 | **Anfragen heute / Token heute** | eigener Zähler pro Key, mit Tageslimit dahinter (`*` = Annahme) |
 | **Pro Minute** | Anfragen- und Token-Limit pro Minute, nach diesen Werten bremst der Agent |
-| **Live vom Server** | bei Groq die echten Restwerte, die Groq mit jeder Antwort meldet |
 | **Gesamt** | alle Anfragen seit dem Eintragen |
 
-- **Anbieter-Reihenfolge:** z. B. „Gemini, bei Limit → Groq“.
+- **KI-Modell:** Modell und Ausweichmodell aus der Liste der für deinen Key verfügbaren Modelle. Die Liste lädt beim Öffnen automatisch.
 - **Keys nutzen:**
   - **gleichmäßig:** reihum, der am wenigsten genutzte Key kommt zuerst dran,
   - **nacheinander:** Key 1 wird aufgebraucht, dann Key 2, … Die Reihenfolge stellst du mit ▲/▼ ein.
 - Erreicht ein Key sein Minutenlimit, nimmt der Agent **sofort einen anderen freien Key**. Sonst wartet er kurz.
-- Ist ein Key für heute aufgebraucht, wird er bis zum Reset übersprungen. Sind alle Keys eines Anbieters aufgebraucht, geht es beim nächsten Anbieter weiter.
+- Hat ein Key das Tageskontingent eines Modells aufgebraucht, nimmt er für den Rest des Tages das Ausweichmodell. Sind bei einem Key beide Modelle aufgebraucht, wird er bis zum Reset übersprungen und die anderen Keys übernehmen.
 - **Echte Gemini-Limits eintragen:** Google zeigt sie in AI Studio unter **„Rate limits“**. Über „Bearbeiten“ beim Key eintragen, dann rechnet der Agent damit statt mit Annahmen.
 
-> ⚠ Keys von **verschiedenen eigenen Konten** nur zum Vervielfachen der Gratis-Limits verstoßen meist gegen die Nutzungsbedingungen von Google und Groq. Das kann zur **Sperre aller beteiligten Konten** führen. Unproblematisch sind z. B. ein eigener Key plus der Key einer anderen Person, die ihn dir gibt.
+> ⚠ Keys von **verschiedenen eigenen Konten** nur zum Vervielfachen der Gratis-Limits verstoßen meist gegen die Nutzungsbedingungen von Google. Das kann zur **Sperre aller beteiligten Konten** führen. Unproblematisch sind z. B. ein eigener Key plus der Key einer anderen Person, die ihn dir gibt.
 
 ## Häufige Probleme
 
 | Meldung im Agenten | Lösung |
 |---|---|
 | „API-Key ungültig oder ohne Berechtigung“ | Key vollständig kopiert? Keine Leerzeichen am Anfang oder Ende? Wurde er in AI Studio gelöscht? Notfalls neuen Key erstellen. |
-| „Modell … nicht gefunden“ / „überlastet“ | Der Agent weicht automatisch auf das Ausweichmodell aus (Gemini: `gemini-3.6-flash`). In den Einstellungen über „Modelle laden“ ein anderes wählen. |
-| „Kein Key mehr verfügbar“ | Alle Keys sind für heute aufgebraucht. Im Key-Manager steht, ab wann sie wieder gehen. Oder einen Groq-Key ergänzen. |
+| „Modell … nicht gefunden“ / „überlastet“ | Der Agent weicht automatisch auf das Ausweichmodell aus. Sind beide nicht verfügbar, im Key-Manager unter „KI-Modell“ andere Modelle aus der Liste wählen. |
+| „Kein Key mehr verfügbar“ | Alle Keys sind für heute aufgebraucht. Im Key-Manager steht, ab wann sie wieder gehen. |
 | „Minutenlimit erreicht – Pause …“ | Normal im Free Tier. Der Agent nimmt einen anderen Key oder wartet kurz. |
 | „Tageslimit des Free Tiers erreicht“ | Morgen weitermachen, unter „Max. Anzeigen für KI“ weniger einstellen oder die Suche enger fassen (Bezirk, Suchbegriff, Preis). |
 | „… aus deiner Region nicht nutzbar“ | Siehe oben „Wichtig für Österreich / EU“. |

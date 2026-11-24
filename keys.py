@@ -1,17 +1,16 @@
 """API-Key- und Limit-Manager.
 
-KeyStore  – speichert beliebig viele Keys pro Anbieter samt Limits und Verbrauch
+KeyStore  – speichert beliebig viele Google-Gemini-Keys samt Limits und Verbrauch
             (~/.config/willhaben-agent/keys.json, nur für den eigenen Benutzer lesbar).
-Verteiler – wählt für jede KI-Anfrage Anbieter und Key: Reihenfolge der Anbieter einstellbar,
-            Keys gleichmäßig oder nacheinander, respektiert Minuten-/Tageslimits, wechselt bei
-            Limit/Fehler automatisch zum nächsten Key bzw. Anbieter.
+Verteiler – wählt für jede KI-Anfrage Key und Modell: Keys gleichmäßig oder nacheinander,
+            respektiert Minuten-/Tageslimits, wechselt bei Limit/Fehler automatisch zum nächsten
+            Key bzw. vom gewählten Modell auf das Ausweichmodell.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import re
 import threading
 import time
 import uuid
@@ -24,8 +23,8 @@ import settings
 
 KEYS_FILE = settings.CONFIG_DIR / "keys.json"
 UEBERLAST_PAUSE = 180          # Sekunden Pause für ein Modell nach "503 überlastet"
-ANBIETER = ["gemini", "groq"]
-ENV_VARS = {"gemini": ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEYS"], "groq": ["GROQ_API_KEY", "GROQ_API_KEYS"]}
+ANBIETER = ["gemini"]
+ENV_VARS = {"gemini": ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEYS"]}
 LIMIT_FELDER = [("rpm", "Anfragen/Minute"), ("rpd", "Anfragen/Tag"), ("tpm", "Token/Minute"), ("tpd", "Token/Tag")]
 
 
@@ -72,19 +71,21 @@ class KeyStore:
                 data = json.loads(self.path.read_text())
             except Exception:
                 data = {}
-            self.keys = data.get("keys", [])
-            self.usage = data.get("usage", {})
-            self.optionen = {"reihenfolge": ["gemini", "groq"], "verteilung": "gleichmaessig",
-                             "modelle": {"gemini": "gemini-3.5-flash", "groq": "auto"}, **data.get("optionen", {})}
-            if not self.optionen.get("v2_modelle"):            # einmalig: neue Standardmodelle übernehmen
-                self.optionen["modelle"]["gemini"] = "gemini-3.5-flash"
-                self.optionen.setdefault("ausweich", {})["gemini"] = "gemini-3.6-flash"
-                self.optionen["v2_modelle"] = True
-            self.optionen.setdefault("ausweich", {})
+            # nur noch Google Gemini: Einträge anderer (früherer) Anbieter verwerfen
+            self.keys = [k for k in data.get("keys", []) if k.get("provider") in PROVIDER_KLASSEN]
+            ids = {k["id"] for k in self.keys}
+            self.usage = {kid: u for kid, u in data.get("usage", {}).items() if kid in ids or kid.startswith("env-")}
+            self.optionen = {"verteilung": "gleichmaessig", **data.get("optionen", {})}
+            self.optionen.pop("reihenfolge", None)
+            modelle = {p: m for p, m in self.optionen.get("modelle", {}).items() if p in PROVIDER_KLASSEN}
+            ausweich = {p: m for p, m in self.optionen.get("ausweich", {}).items() if p in PROVIDER_KLASSEN}
             for p, k in PROVIDER_KLASSEN.items():
-                self.optionen["ausweich"].setdefault(p, getattr(k, "ausweich_modell", ""))
-            if self.optionen["modelle"].get("gemini") == "gemini-flash-latest":   # alter Standard, gibt es nicht überall
-                self.optionen["modelle"]["gemini"] = "auto"
+                if not modelle.get(p) or modelle[p] in ("auto", "gemini-flash-latest") \
+                        or not self.optionen.get("v2_modelle"):
+                    modelle[p] = k.standard_modell
+                if not ausweich.get(p) or not self.optionen.get("v2_modelle"):
+                    ausweich[p] = k.ausweich_modell
+            self.optionen.update(modelle=modelle, ausweich=ausweich, v2_modelle=True)
             self._legacy_import()
             self._env_keys()
 
@@ -312,13 +313,13 @@ def _sleep(seconds: float, stop: threading.Event | None):
 class Verteiler:
     """Wird von der Bewertung wie ein einzelnes Modell benutzt: generate(prompt, schema, heavy)."""
 
-    def __init__(self, store: KeyStore, reihenfolge: list[str] | None = None, modelle: dict | None = None,
+    def __init__(self, store: KeyStore, modelle: dict | None = None,
                  verteilung: str | None = None, log: Callable[[str], None] = print,
                  stop: threading.Event | None = None, on_update: Callable[[], None] | None = None,
                  ausweich: dict | None = None):
         self.store = store
         o = store.optionen
-        self.reihenfolge = [r for r in (reihenfolge or o.get("reihenfolge") or ANBIETER) if r in PROVIDER_KLASSEN]
+        self.reihenfolge = list(ANBIETER)            # nur Google Gemini
         self.modelle = {**o.get("modelle", {}), **(modelle or {})}
         self.ausweich = {**{p: getattr(k, "ausweich_modell", "") for p, k in PROVIDER_KLASSEN.items()},
                          **o.get("ausweich", {}), **(ausweich or {})}
@@ -448,32 +449,10 @@ class Verteiler:
                 wahl = min(sofort, key=lambda k: (k[0], k[3]))
         return wahl[4], wahl[5], wahl[2]
 
-    def _kette(self, name: str, e: dict) -> list[str]:
-        """Modelle in Wunsch-Reihenfolge: eingestelltes (bzw. bestes bei 'auto'), Ausweichmodell, dann der Rest."""
-        prov = self.provider(name)
-        if name not in self._modellliste:
-            try:
-                self._modellliste[name] = prov.modelle(e["key"])
-            except ProviderFehler:
-                self._modellliste[name] = []
-        rest = list(self._modellliste[name])
-        if name == "gemini":   # nur Text-Flash-Modelle als Ersatz (andere haben im Free Tier oft kein Kontingent)
-            rest = [m for m in rest if "flash" in m and not re.search(r"image|tts|audio|live|banana|omni", m)]
-        sortiert = []
-        while rest:
-            m = prov.bestes_modell(rest)
-            sortiert.append(m)
-            rest.remove(m)
-        sortiert = [m for m in sortiert if "lite" not in m] + [m for m in sortiert if "lite" in m]
-        gewuenscht = (self.modelle.get(name) or "").strip() or PROVIDER_KLASSEN[name].standard_modell
-        kette = [] if gewuenscht == "auto" else [gewuenscht]
-        if gewuenscht == "auto" and sortiert:
-            kette.append(sortiert[0])
-        kette.append((self.ausweich.get(name) or "").strip())
-        kette += sortiert
-        if not any(kette) and not sortiert:          # Modellliste nicht abrufbar -> Standard des Anbieters
-            std = PROVIDER_KLASSEN[name].standard_modell
-            kette.append("" if std == "auto" else std)
+    def _kette(self, name: str, e: dict | None = None) -> list[str]:
+        """Genau zwei Modelle: das gewählte und das Ausweichmodell (keine stillen weiteren Modelle)."""
+        kette = [(self.modelle.get(name) or "").strip() or PROVIDER_KLASSEN[name].standard_modell,
+                 (self.ausweich.get(name) or "").strip()]
         out = []
         for m in kette:
             if m and m not in out:
@@ -503,6 +482,9 @@ class Verteiler:
         # Kein Modell nutzbar. Nur wegen Überlastung pausiert -> kurz warten; Kontingente aufgebraucht -> Key sperren
         now = time.time()
         kette = self._kette(name, e)
+        if all((name, m) in self._kaputt for m in kette):
+            raise KIFehler(f"Weder „{kette[0]}“ noch das Ausweichmodell sind für deinen Key verfügbar. "
+                           "Unter „API-Keys & Limits“ → „KI-Modell“ verfügbare Modelle wählen.")
         gesperrt = self.store.nutzung(e["id"]).get("modell_gesperrt", {})
         pausen = dict(self.store.pausierte_modelle(name))
         nur_pause = [pausen[m] for m in kette if m in pausen and gesperrt.get(m, 0) <= now and (name, m) not in self._kaputt]
@@ -520,7 +502,7 @@ class Verteiler:
             for e in self.store.eintraege(n):
                 teile.append(f"{PROVIDER_TITEL[n]} „{e['label']}“: {self.store.status_text(e)}")
         if not teile:
-            return ("Kein API-Key eingetragen. Unter „API-Keys & Limits“ mindestens einen Gemini- oder Groq-Key "
+            return ("Kein API-Key eingetragen. Unter „API-Keys & Limits“ mindestens einen Google-Gemini-Key "
                     "hinzufügen (Anleitung: ANLEITUNG-API-KEY.md).")
         return "Kein Key mehr verfügbar – alle Limits erreicht oder Keys ungültig:\n  " + "\n  ".join(teile)
 
@@ -607,7 +589,7 @@ class Verteiler:
                     self.log(f"  ↪ {titel}: Modell „{modell}“ ist überlastet – {UEBERLAST_PAUSE // 60} min Pause für dieses Modell")
                     if ueberlastet > 8:
                         raise KIFehler(f"{titel} ist dauerhaft überlastet. Später erneut versuchen "
-                                       "oder einen Groq-Key als Ausweich-Anbieter eintragen.")
+                                       "oder in den Einstellungen ein anderes (Ausweich-)Modell wählen.")
                     continue
                 raise KIFehler(f"{label}: {f.meldung}")
             self.store.erfolg(e["id"], antwort.tokens, antwort.info)

@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import settings  # noqa: E402
 from pipeline import Auftrag, Ereignisse, run  # noqa: E402
-from keys import KeyStore, KIFehler, ANBIETER, maskiert  # noqa: E402
+from keys import KeyStore, KIFehler, maskiert  # noqa: E402
 from keys_dialog import KeyManager, _zahl  # noqa: E402
 import updater  # noqa: E402
 from update_dialog import UpdateDialog  # noqa: E402
@@ -127,7 +127,7 @@ class App:
             root.after(1500, lambda: self.update_pruefen(manuell=False))
         self._log("Bereit. Suchauftrag links ausfüllen und auf ▶ Start klicken.", "info")
         if not self.store.eintraege():
-            self._log("Hinweis: Noch kein API-Key eingetragen → „API-Keys & Limits…“ (Gemini oder Groq, kostenlos).", "warn")
+            self._log("Hinweis: Noch kein Google-Gemini-Key eingetragen → „API-Keys & Limits …“ (Strg+K).", "warn")
 
     # ------------------------------------------------------------------ Layout
     def _style(self):
@@ -165,7 +165,6 @@ class App:
         h.add_command(label="Anleitung: API-Keys holen", command=lambda: open_path(
             Path(__file__).resolve().parent / "ANLEITUNG-API-KEY.md"))
         h.add_command(label="Gemini-Key erstellen ↗", command=lambda: webbrowser.open("https://aistudio.google.com/apikey"))
-        h.add_command(label="Groq-Key erstellen ↗", command=lambda: webbrowser.open("https://console.groq.com/keys"))
         h.add_separator()
         h.add_command(label="Über …", command=self._ueber)
         menubar.add_cascade(label="Hilfe", menu=h)
@@ -448,10 +447,9 @@ class App:
         if self.worker and self.worker.is_alive():
             return
         a = self._auftrag()
-        reihe = self.store.optionen.get("reihenfolge", ANBIETER)
-        if not any(e.get("aktiv", True) for p in reihe for e in self.store.eintraege(p)):
+        if not any(e.get("aktiv", True) for e in self.store.eintraege("gemini")):
             if messagebox.askyesno(APP_TITLE, "Es ist noch kein (aktiver) API-Key eingetragen.\n\n"
-                                   "Jetzt die Key-Verwaltung öffnen? Gemini- und Groq-Keys sind kostenlos."):
+                                   "Jetzt die Key-Verwaltung öffnen?"):
                 self.open_keys()
             return
         if a.kategorie not in CATEGORIES and "/" not in a.kategorie and not a.url:
@@ -554,18 +552,15 @@ class App:
     def _ki_refresh(self):
         """Kurzübersicht der Keys im Hauptfenster."""
         st = self.store
-        reihe = st.optionen.get("reihenfolge", ANBIETER)
-        zeilen = []
-        for p in reihe:
-            alle = st.eintraege(p)
-            aktiv = [e for e in alle if e.get("aktiv", True)]
-            bereit = [e for e in aktiv if st.status_text(e) in ("bereit",) or st.status_text(e).startswith("Pause")]
-            heute = sum(st.nutzung(e["id"]).get("anfragen", 0) for e in alle)
-            zeilen.append(f"{PROVIDER_TITEL[p]}: {len(bereit)}/{len(aktiv)} Keys bereit · heute {heute} Anfr."
-                          if alle else f"{PROVIDER_TITEL[p]}: kein Key")
+        alle = st.eintraege("gemini")
+        aktiv = [e for e in alle if e.get("aktiv", True)]
+        bereit = [e for e in aktiv if st.status_text(e).startswith(("bereit", "Pause"))]
+        heute = sum(st.nutzung(e["id"]).get("anfragen", 0) for e in alle)
+        modell = st.optionen.get("modelle", {}).get("gemini", "?")
+        ausweich = st.optionen.get("ausweich", {}).get("gemini") or "–"
         vert = "gleichmäßig" if st.optionen.get("verteilung") == "gleichmaessig" else "nacheinander"
-        self.lbl_ki.configure(text=tk_safe("Reihenfolge: " + " → ".join(PROVIDER_TITEL[p] for p in reihe)
-                                           + f" ({vert})\n" + "\n".join(zeilen)))
+        keys_txt = (f"{len(bereit)}/{len(aktiv)} Keys bereit ({vert}) · heute {heute} Anfr." if alle else "kein Key")
+        self.lbl_ki.configure(text=tk_safe(f"Google Gemini: {keys_txt}\nModell: {modell} · Ausweich: {ausweich}"))
         letzte = max(st.eintraege(), key=lambda e: st.nutzung(e["id"]).get("zuletzt", 0), default=None)
         if letzte and st.nutzung(letzte["id"]).get("zuletzt"):
             u, lim = st.nutzung(letzte["id"]), st.limits(letzte)

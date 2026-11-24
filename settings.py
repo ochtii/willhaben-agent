@@ -24,11 +24,3 @@ def save(data: dict) -> None:
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1))
     os.chmod(tmp, 0o600)          # Key nur für den eigenen Benutzer lesbar
     tmp.replace(CONFIG_FILE)
-
-
-def api_key(anbieter: str = "gemini") -> str:
-    """Key aus Umgebungsvariable oder gespeicherter Konfiguration."""
-    if anbieter.startswith("claude"):
-        return os.environ.get("ANTHROPIC_API_KEY", "") or load().get("claude_api_key", "")
-    return (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-            or load().get("gemini_api_key", ""))

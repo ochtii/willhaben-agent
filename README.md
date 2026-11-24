@@ -1,7 +1,7 @@
 # Willhaben KI-Agent
 
 Durchsucht **alle** Anzeigen einer willhaben-Suche, lädt die vollständigen Beschreibungen und lässt
-**Google Gemini** bzw. **Groq** (beide mit kostenlosem Free Tier) die besten Angebote nach Preis/Leistung bzw.
+**Google Gemini** die besten Angebote nach Preis/Leistung bzw.
 bestem Kompromiss auswählen – mit Vor-/Nachteilen, Marktüberblick und Tipp. Mit grafischer Oberfläche für Linux, in der
 man live sieht, was der Agent gerade macht.
 
@@ -17,7 +17,7 @@ Der Installer
 - legt eine eigene Python-Umgebung in `.venv/` an (nichts wird systemweit per pip installiert),
 - erstellt die Startmenü-Einträge **„Willhaben KI-Agent“** und **„Willhaben KI-Agent (mit Terminal)“** sowie ein Symbol auf dem Schreibtisch.
 
-Danach die **kostenlosen API-Keys** holen (Gemini, optional Groq) und unter **Einstellungen → API-Keys & Limits**
+Danach einen **Google-Gemini-API-Key** holen und unter **Einstellungen → API-Keys & Limits**
 eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 
 ## Starten
@@ -25,7 +25,7 @@ eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 - **Desktop:** Startmenü oder Schreibtisch → „Willhaben KI-Agent“
 - **Mit Terminal-Fenster:** „Willhaben KI-Agent (mit Terminal)“ – das Fenster erscheint, und im Terminal läuft dasselbe Protokoll mit
 - **Aus dem Terminal:** `./willhaben-agent`
-- **Keys im Terminal:** `./willhaben-agent-cli --keys` zeigt Keys, Limits und Verbrauch. `./willhaben-agent-cli --key-hinzufuegen groq "Privat" gsk_…` speichert einen Key.
+- **Keys im Terminal:** `./willhaben-agent-cli --keys` zeigt Keys, Limits und Verbrauch. `./willhaben-agent-cli --key-hinzufuegen "Privat" AIza…` speichert einen Key, `--modelle` listet die für deinen Key verfügbaren Modelle.
 - **Ohne Fenster (reine Terminal-Version):**
   ```bash
   ./willhaben-agent-cli --kategorie laptops --von 200 --bis 600 --bundesland wien --bezirk Favoriten \
@@ -49,7 +49,7 @@ eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 | Bereich | Inhalt |
 |---|---|
 | **Links: Suchauftrag** | Suchbegriff, Kategorie, Beschreibung, Preisspanne, Bundesländer (Häkchen), Bezirke, Anzahl Top-Geräte. Die Eingaben werden fürs nächste Mal gemerkt. Darunter eine Kurzübersicht der Keys (bereit, heute verbraucht, zuletzt genutzt). |
-| **Einstellungen → API-Keys & Limits** (Strg+K) | Beliebig viele Keys pro Anbieter: hinzufügen, ändern, testen, ein- und ausschalten, Reihenfolge festlegen. Verbrauch und Limits live, bei Groq direkt vom Server. Dazu Anbieter-Reihenfolge, Verteilung (gleichmäßig/nacheinander), Modell und Ausweichmodell. |
+| **Einstellungen → API-Keys & Limits** (Strg+K) | **Modell** und **Ausweichmodell** aus der Liste der für deinen Key verfügbaren Gemini-Modelle wählen. Dazu beliebig viele Gemini-Keys: hinzufügen, ändern, testen, ein- und ausschalten, Reihenfolge festlegen, Verteilung gleichmäßig oder nacheinander. Verbrauch und Limits werden live angezeigt. |
 | **Oben: Phasen** | 1. Suche → 2. Details → 3. KI-Bewertung → 4. Endvergleich → 5. Fertig, mit Fortschrittsbalken, Zählern und Laufzeit |
 | **Live-Protokoll** | Terminal-Ansicht: jede Seite, jede Wartezeit, jede KI-Anfrage |
 | **Anzeigen** | Tabelle, die sich live füllt: Preis, Ort, Zustand, KI-Werte für Leistung und Preis/Leistung. Grün = passend, grau = aussortiert, gelb = Top-Liste. Klick auf eine Spalte sortiert, Klick auf eine Zeile zeigt die KI-Begründung, Doppelklick öffnet die Anzeige im Browser. |
@@ -66,7 +66,7 @@ Ergebnisse landen in `~/willhaben-ergebnisse/`:
 1. **Suche:** alle Ergebnisseiten (200 Anzeigen pro Seite), Bezirke werden in willhaben-Filter übersetzt
 2. **Details:** jede Anzeigenseite → vollständige Beschreibung, Marke, Zustand, Display, privat/Händler (keine Kontaktdaten)
 3. **Marktrecherche** (abschaltbar): Gemini sucht per Google-Suche die *aktuelle* Marktlage. Gefragt sind typische Gebrauchtpreise in Österreich, Neupreise zur Einordnung, Trends und worauf man achten sollte. Das Ergebnis samt Quellen fließt in die Bewertung ein, steht im Bericht und kostet eine zusätzliche Anfrage.
-4. **KI-Bewertung:** Pakete an Gemini (20 Anzeigen) bzw. Groq (6 Anzeigen) → Specs, Zustand, Relevanz, Leistung, Preis/Leistung, Warnsignale. Der Verteiler wählt für jede Anfrage den passenden Key und wechselt bei Limit, Überlastung oder ungültigem Key automatisch Key, Modell oder Anbieter.
+4. **KI-Bewertung:** Pakete mit 30 Anzeigen an Gemini → Specs, Zustand, Relevanz, Leistung, Preis/Leistung, Warnsignale. Der Verteiler wählt für jede Anfrage den passenden Key. Bei einem Limit oder einem ungültigen Key wechselt er zum nächsten Key, bei Überlastung oder aufgebrauchtem Kontingent vom gewählten Modell auf das Ausweichmodell.
 5. **Endvergleich:** die besten ~3×N Kandidaten werden gegeneinander verglichen → Top-N mit Vor-/Nachteilen
 
 ## Kategorien
@@ -93,7 +93,7 @@ Für jede andere Kategorie oder spezielle Filter: Suche im Browser auf willhaben
 | `pipeline.py` | gemeinsamer Ablauf |
 | `willhaben.py` | Scraper |
 | `rating.py` | KI-Bewertung (Prompts, Pakete, Endvergleich) |
-| `providers.py` | Anbindung Gemini und Groq, Fehler- und Limit-Erkennung |
+| `providers.py` | Anbindung an Google Gemini, Fehler- und Limit-Erkennung |
 | `keys.py` | Key-Speicher, Verbrauchszähler, automatischer Verteiler |
 | `keys_dialog.py` | Fenster „API-Keys & Limits“ |
 | `updater.py`, `update_dialog.py` | Update-Prüfung und -Installation über GitHub |
