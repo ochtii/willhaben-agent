@@ -179,14 +179,24 @@ def pruefen(app_dir: Path = APP_DIR, timeout: float = 8) -> UpdateInfo:
             info.neuer = True
             info.aenderungen = [info.remote.nachricht]
             return info
-        try:
-            r = _get(f"{API}/compare/{lokal.sha}...{info.remote.sha}", timeout)
-        except UpdateFehler as e:
-            if "nicht gefunden" in str(e):
+        r = None
+        for versuch in range(2):          # direkt nach einem Push kennt GitHub den Vergleich manchmal kurz noch nicht
+            try:
+                r = _get(f"{API}/compare/{lokal.sha}...{info.remote.sha}", timeout)
+                break
+            except UpdateFehler as e:
+                if "nicht gefunden" not in str(e):
+                    raise
+                if versuch == 0:
+                    time.sleep(2)
+        if r is None:
+            if lokal.nummer is not None and info.remote.nummer and lokal.nummer < info.remote.nummer:
+                info.neuer = True              # anhand der Versionsnummer entscheiden
+                info.aenderungen = [info.remote.nachricht]
+            else:
                 info.fehler = (f"Der installierte Stand {lokal.kurz} ist nicht auf GitHub – vermutlich eine lokale, "
                                "noch nicht gepushte Entwicklungsversion. Kein Update nötig.")
-                return info
-            raise
+            return info
         cmp = r.json()
         behind = cmp.get("ahead_by", 0)              # remote ist so viele Commits voraus
         if lokal.nummer is None:
