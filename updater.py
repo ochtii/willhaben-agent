@@ -32,7 +32,8 @@ API = f"https://api.github.com/repos/{REPO}"
 REPO_URL = f"https://github.com/{REPO}"
 APP_DIR = Path(__file__).resolve().parent
 STATUS_DATEI = ".installed_version.json"      # nicht im Repo (siehe .gitignore)
-# Beim ZIP-Update nie anfassen
+MANIFEST = "laufzeit-dateien.txt"             # welche Dateien eine Installation braucht
+# Im Installationsordner nie anfassen (Laufzeit-Umgebung, Startskripte, Update-Status)
 GESCHUETZT = {".venv", ".git", STATUS_DATEI, "willhaben-agent", "willhaben-agent-cli", "__pycache__"}
 
 
@@ -97,6 +98,48 @@ def ist_git(app_dir: Path = APP_DIR) -> bool:
         return True
     except (UpdateFehler, OSError, subprocess.SubprocessError):
         return False
+
+
+def laufzeit_dateien(ordner: Path) -> list[str] | None:
+    """Liste der benötigten Dateien aus laufzeit-dateien.txt (None, wenn die Liste fehlt)."""
+    try:
+        zeilen = (ordner / MANIFEST).read_text().splitlines()
+    except OSError:
+        return None
+    out = []
+    for z in zeilen:
+        z = z.strip()
+        if z and not z.startswith("#") and ".." not in z and not z.startswith("/"):
+            out.append(z)
+    return out
+
+
+def aufraeumen(app_dir: Path = APP_DIR, erlaubt: set[str] | None = None, log=print) -> list[str]:
+    """Entfernt im Installationsordner alles, was nicht zum Betrieb/Update gebraucht wird.
+    Nie in einem Git-Klon (Entwicklung) – dort wird nichts gelöscht."""
+    if (app_dir / ".git").exists():
+        return []
+    if erlaubt is None:
+        liste = laufzeit_dateien(app_dir)
+        if not liste:
+            return []                      # ohne Liste lieber nichts löschen
+        erlaubt = set(liste)
+    entfernt = []
+    for p in sorted(app_dir.rglob("*"), key=lambda x: len(x.parts), reverse=True):
+        rel = p.relative_to(app_dir).as_posix()
+        if rel.split("/")[0] in GESCHUETZT:
+            continue
+        if p.is_dir():
+            if not any(p.iterdir()):
+                p.rmdir()
+            continue
+        if rel not in erlaubt:
+            p.unlink()
+            entfernt.append(rel)
+    if entfernt:
+        log(f"🧹 {len(entfernt)} nicht benötigte Dateien entfernt: {', '.join(entfernt[:8])}"
+            + (" …" if len(entfernt) > 8 else ""))
+    return entfernt
 
 
 def _status_lesen(app_dir: Path) -> dict:
@@ -267,7 +310,11 @@ def _update_zip(app_dir: Path, ziel: Stand, log):
         with zipfile.ZipFile(io.BytesIO(r.content)) as z:
             z.extractall(tmp)
         wurzel = next(Path(tmp).iterdir())                     # <repo>-<sha>/
-        neue = [p.relative_to(wurzel).as_posix() for p in wurzel.rglob("*") if p.is_file()]
+        liste = laufzeit_dateien(wurzel)
+        if liste:      # nur die Dateien übernehmen, die laut neuer Version zum Betrieb nötig sind
+            neue = [rel for rel in liste if (wurzel / rel).is_file()]
+        else:          # ältere Version ohne Liste: alles übernehmen
+            neue = [p.relative_to(wurzel).as_posix() for p in wurzel.rglob("*") if p.is_file()]
         alte = set(_status_lesen(app_dir).get("dateien", []))
         for rel in neue:
             if rel.split("/")[0] in GESCHUETZT:
@@ -275,12 +322,12 @@ def _update_zip(app_dir: Path, ziel: Stand, log):
             ziel_pfad = app_dir / rel
             ziel_pfad.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(wurzel / rel, ziel_pfad)
-        for rel in alte - set(neue):                           # auf GitHub gelöschte Dateien entfernen
-            if rel.split("/")[0] not in GESCHUETZT and (app_dir / rel).is_file():
-                (app_dir / rel).unlink()
-    for sh in ("install.sh",):
-        if (app_dir / sh).exists():
-            os.chmod(app_dir / sh, 0o755)
+        if liste:
+            aufraeumen(app_dir, set(neue), log)
+        else:
+            for rel in alte - set(neue):                       # auf GitHub gelöschte Dateien entfernen
+                if rel.split("/")[0] not in GESCHUETZT and (app_dir / rel).is_file():
+                    (app_dir / rel).unlink()
     _status_schreiben(app_dir, ziel, neue)
     log(f"✔ {len(neue)} Dateien aktualisiert")
 
@@ -305,3 +352,17 @@ def neu_starten():
 def version_text(app_dir: Path = APP_DIR) -> str:
     st = lokaler_stand(app_dir)
     return st.version(basis_version(app_dir))
+
+
+if __name__ == "__main__":
+    # Hilfsbefehle für install.sh
+    import argparse
+    ap = argparse.ArgumentParser(description="Hilfsbefehle für den Installer")
+    ap.add_argument("--aufraeumen", action="store_true", help="nicht benötigte Dateien im Installationsordner entfernen")
+    ap.add_argument("--status", nargs=2, metavar=("SHA", "NUMMER"), help="installierten Stand merken")
+    a = ap.parse_args()
+    if a.status:
+        _status_schreiben(APP_DIR, Stand(a.status[0], int(a.status[1]) if a.status[1].isdigit() else None),
+                          laufzeit_dateien(APP_DIR))
+    if a.aufraeumen:
+        aufraeumen(APP_DIR)

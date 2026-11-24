@@ -8,14 +8,20 @@ man live sieht, was der Agent gerade macht.
 ## Installation (einmalig)
 
 ```bash
-cd willhaben-agent
-./install.sh
+git clone https://github.com/ochtii/willhaben-agent.git
+cd willhaben-agent && ./install.sh
 ```
+
+(Oder das ZIP von GitHub herunterladen, entpacken und `./install.sh` ausführen.)
 
 Der Installer
 - sucht ein Python mit Tkinter (installiert `python3-tk` / `python3-venv` bei Bedarf per `sudo`, unterstützt apt/dnf/pacman/zypper),
-- legt eine eigene Python-Umgebung in `.venv/` an (nichts wird systemweit per pip installiert),
-- erstellt die Startmenü-Einträge **„Willhaben KI-Agent“** und **„Willhaben KI-Agent (mit Terminal)“** sowie ein Symbol auf dem Schreibtisch.
+- kopiert **nur die zum Betrieb und für Updates nötigen Dateien** (Liste: `laufzeit-dateien.txt`) nach `~/.local/share/willhaben-agent` und entfernt dort alles andere,
+- legt dort eine eigene Python-Umgebung (`.venv/`) an, es wird nichts systemweit per pip installiert,
+- erstellt die Startbefehle `willhaben-agent` / `willhaben-agent-cli` in `~/.local/bin`, die Startmenü-Einträge **„Willhaben KI-Agent“** und **„… (mit Terminal)“** sowie ein Symbol auf dem Schreibtisch,
+- bietet am Ende an, den **heruntergeladenen Quellordner zu löschen**, weil er nicht mehr gebraucht wird. Hat ein Git-Klon ungesicherte Änderungen, warnt er und fragt mit Standard „nein“. Optionen: `--quelle-behalten`, `--quelle-loeschen`.
+
+Anderer Installationsort: `WILLHABEN_AGENT_HOME=/pfad ./install.sh`
 
 Danach einen **Google-Gemini-API-Key** holen und unter **Einstellungen → API-Keys & Limits**
 eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
@@ -24,11 +30,11 @@ eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 
 - **Desktop:** Startmenü oder Schreibtisch → „Willhaben KI-Agent“
 - **Mit Terminal-Fenster:** „Willhaben KI-Agent (mit Terminal)“ – das Fenster erscheint, und im Terminal läuft dasselbe Protokoll mit
-- **Aus dem Terminal:** `./willhaben-agent`
-- **Keys im Terminal:** `./willhaben-agent-cli --keys` zeigt Keys, Limits und Verbrauch. `./willhaben-agent-cli --key-hinzufuegen "Privat" AIza…` speichert einen Key, `--modelle` listet die für deinen Key verfügbaren Modelle.
+- **Aus dem Terminal:** `willhaben-agent`
+- **Keys im Terminal:** `willhaben-agent-cli --keys` zeigt Keys, Limits und Verbrauch. `willhaben-agent-cli --key-hinzufuegen "Privat" AIza…` speichert einen Key, `--modelle` listet die für deinen Key verfügbaren Modelle.
 - **Ohne Fenster (reine Terminal-Version):**
   ```bash
-  ./willhaben-agent-cli --kategorie laptops --von 200 --bis 600 --bundesland wien --bezirk Favoriten \
+  willhaben-agent-cli --kategorie laptops --von 200 --bis 600 --bundesland wien --bezirk Favoriten \
       --beschreibung "Uni & Office, leicht, guter Akku, mind. 16 GB RAM" --top 10
   ```
 
@@ -36,8 +42,9 @@ eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 
 - **Beim Start** prüft die App im Hintergrund auf GitHub, ob es eine neuere Version gibt. Wenn ja, zeigt sie Versionsnummern und Änderungen an: **Jetzt aktualisieren · Später · Diese Version überspringen**.
 - **Von Hand:** Einstellungen → **Nach Updates suchen …** Dort lässt sich auch die Prüfung beim Start abschalten.
-- **Terminal:** `./willhaben-agent-cli --version` bzw. `./willhaben-agent-cli --update`
+- **Terminal:** `willhaben-agent-cli --version` bzw. `willhaben-agent-cli --update`
 - **Versionsnummer** `1.0.N`: `1.0` steht in der Datei `VERSION` (für größere Sprünge von Hand ändern), **N ist die Anzahl der Commits auf `main`** und steigt bei jedem Push automatisch.
+- **Aufräumen:** Ein Update übernimmt nur die Dateien, die laut `laufzeit-dateien.txt` der neuen Version gebraucht werden, und löscht im Installationsordner alles andere. Neue Programmdateien müssen deshalb in `laufzeit-dateien.txt` eingetragen werden.
 - **So wird installiert:**
   - Bei einem Git-Klon per `git pull`. Lokal geänderte Programmdateien werden nie überschrieben, das Update bricht dann mit Hinweis ab.
   - Bei einer ZIP-Installation per Download von GitHub.
@@ -99,5 +106,6 @@ Für jede andere Kategorie oder spezielle Filter: Suche im Browser auf willhaben
 | `updater.py`, `update_dialog.py` | Update-Prüfung und -Installation über GitHub |
 | `about_dialog.py` | Fenster „Über“: Funktionen, Ablauf, Versionsverlauf, Entwickler & Links |
 | `VERSION` | Haupt-/Nebenversion (die letzte Stelle zählt automatisch die Commits) |
+| `laufzeit-dateien.txt` | Liste der Dateien, die eine Installation braucht (alles andere wird entfernt) |
 | `settings.py` | gespeicherte Eingaben |
 | `install.sh` | Installer |

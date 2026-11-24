@@ -1,9 +1,30 @@
 #!/usr/bin/env bash
 # Installiert den Willhaben KI-Agenten für den aktuellen Benutzer (kein root nötig, außer für fehlende Systempakete).
+#
+# Ins Installationsverzeichnis (Standard: ~/.local/share/willhaben-agent) kommen NUR die Dateien aus
+# laufzeit-dateien.txt – alles andere (README, Anleitung, Installer, Git-Daten …) wird dort entfernt.
+# Danach kann der heruntergeladene Quellordner gelöscht werden (der Installer fragt nach).
+#
+# Optionen:
+#   --quelle-behalten   Quellordner nicht löschen und nicht danach fragen
+#   --quelle-loeschen   Quellordner ohne Rückfrage löschen (außer bei ungesicherten Git-Änderungen)
+#   Ziel ändern:        WILLHABEN_AGENT_HOME=/pfad ./install.sh
 set -euo pipefail
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$DIR"
-echo "== Willhaben KI-Agent – Installation in $DIR"
+
+QUELLE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ZIEL="${WILLHABEN_AGENT_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/willhaben-agent}"
+BIN="$HOME/.local/bin"
+QUELLE_MODUS="fragen"
+for arg in "$@"; do
+  case "$arg" in
+    --quelle-behalten) QUELLE_MODUS="behalten" ;;
+    --quelle-loeschen) QUELLE_MODUS="loeschen" ;;
+    *) echo "Unbekannte Option: $arg"; exit 1 ;;
+  esac
+done
+
+echo "== Willhaben KI-Agent – Installation nach $ZIEL"
+[ -f "$QUELLE/laufzeit-dateien.txt" ] || { echo "❌ laufzeit-dateien.txt fehlt in $QUELLE"; exit 1; }
 
 # 1) Python mit Tkinter + venv finden (ggf. Systempakete nachinstallieren)
 find_python() {
@@ -33,7 +54,23 @@ if [ -z "$PY" ]; then
 fi
 echo "✔ Verwende $($PY --version) ($(command -v $PY))"
 
-# 2) Virtuelle Umgebung + Pakete
+# 2) Nur die benötigten Dateien ins Installationsverzeichnis kopieren
+mkdir -p "$ZIEL"
+if [ "$QUELLE" != "$ZIEL" ]; then
+  anzahl=0
+  while IFS= read -r datei || [ -n "$datei" ]; do
+    datei="${datei%%#*}"; datei="$(echo "$datei" | xargs)"
+    [ -z "$datei" ] && continue
+    [ -f "$QUELLE/$datei" ] || { echo "❌ $datei fehlt in $QUELLE"; exit 1; }
+    mkdir -p "$ZIEL/$(dirname "$datei")"
+    cp -p "$QUELLE/$datei" "$ZIEL/$datei"
+    anzahl=$((anzahl + 1))
+  done < "$QUELLE/laufzeit-dateien.txt"
+  echo "✔ $anzahl Programmdateien nach $ZIEL kopiert"
+fi
+
+# 3) Virtuelle Umgebung + Pakete (im Installationsverzeichnis)
+cd "$ZIEL"
 if [ -x .venv/bin/python ] && ! .venv/bin/python -c "import tkinter" 2>/dev/null; then
   rm -rf .venv   # alte Umgebung ohne Tkinter ersetzen
 fi
@@ -46,20 +83,35 @@ fi
   || { echo "❌ Installation unvollständig"; exit 1; }
 echo "✔ Python-Pakete installiert"
 
-# 3) Startskripte
+# 4) Installierten Stand merken (für die Update-Prüfung) und Installationsverzeichnis aufräumen
+if command -v git >/dev/null && git -C "$QUELLE" rev-parse HEAD >/dev/null 2>&1; then
+  SHA="$(git -C "$QUELLE" rev-parse HEAD)"
+  NUMMER="?"
+  if [ "$(git -C "$QUELLE" rev-parse --is-shallow-repository)" = "false" ]; then
+    NUMMER="$(git -C "$QUELLE" rev-list --count HEAD)"
+  fi
+  .venv/bin/python updater.py --status "$SHA" "$NUMMER"
+fi
+.venv/bin/python updater.py --aufraeumen
+
+# 5) Startskripte
 cat > willhaben-agent <<EOS
 #!/usr/bin/env bash
 # Startet die grafische Oberfläche. Im Terminal gestartet, erscheint das Protokoll zusätzlich hier.
-exec "$DIR/.venv/bin/python" "$DIR/gui.py" "\$@"
+exec "$ZIEL/.venv/bin/python" "$ZIEL/gui.py" "\$@"
 EOS
 cat > willhaben-agent-cli <<EOS
 #!/usr/bin/env bash
-# Terminal-Version ohne Fenster, z.B.:  ./willhaben-agent-cli --kategorie laptops --von 200 --bis 600 --bundesland wien
-exec "$DIR/.venv/bin/python" "$DIR/agent.py" "\$@"
+# Terminal-Version ohne Fenster, z.B.:  willhaben-agent-cli --kategorie laptops --von 200 --bis 600 --bundesland wien
+exec "$ZIEL/.venv/bin/python" "$ZIEL/agent.py" "\$@"
 EOS
 chmod +x willhaben-agent willhaben-agent-cli
+mkdir -p "$BIN"
+ln -sf "$ZIEL/willhaben-agent" "$BIN/willhaben-agent"
+ln -sf "$ZIEL/willhaben-agent-cli" "$BIN/willhaben-agent-cli"
+echo "✔ Startbefehle: $BIN/willhaben-agent, $BIN/willhaben-agent-cli"
 
-# 4) Startmenü- und Desktop-Einträge
+# 6) Startmenü- und Desktop-Einträge
 APPS="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 mkdir -p "$APPS"
 write_desktop() {  # $1=Datei $2=Name $3=Terminal(true/false)
@@ -68,8 +120,8 @@ cat > "$1" <<EOD
 Type=Application
 Name=$2
 Comment=Durchsucht willhaben.at und bewertet Angebote mit KI
-Exec=$DIR/willhaben-agent
-Icon=$DIR/icon.png
+Exec=$ZIEL/willhaben-agent
+Icon=$ZIEL/icon.png
 Terminal=$3
 Categories=Utility;Network;
 StartupWMClass=willhaben-agent
@@ -91,8 +143,52 @@ fi
 
 echo
 .venv/bin/python agent.py --version 2>/dev/null || true
+
+# 7) Heruntergeladenen Quellordner entfernen (wird nicht mehr benötigt)
+if [ "$QUELLE" != "$ZIEL" ]; then
+  # Reste einer älteren Installation direkt im Quellordner (vor v1.0.6) entfernen
+  rm -rf "$QUELLE/.venv" "$QUELLE/willhaben-agent" "$QUELLE/willhaben-agent-cli" "$QUELLE/.installed_version.json"
+
+  sicher=true      # nur löschen, was eindeutig ein Quellordner dieses Projekts ist
+  case "$QUELLE" in "/"|"$HOME"|"$HOME/"|"$ZIEL"|"$ZIEL"/*) sicher=false ;; esac
+  case "$ZIEL" in "$QUELLE"/*) sicher=false ;; esac
+  [ -f "$QUELLE/install.sh" ] && [ -f "$QUELLE/laufzeit-dateien.txt" ] || sicher=false
+
+  standard="j"
+  if [ -d "$QUELLE/.git" ] && command -v git >/dev/null; then
+    if [ -n "$(git -C "$QUELLE" status --porcelain 2>/dev/null)" ] || \
+       [ -n "$(git -C "$QUELLE" log --branches --not --remotes --oneline 2>/dev/null | head -1)" ]; then
+      echo "⚠ $QUELLE enthält ungespeicherte oder nicht gepushte Git-Änderungen."
+      standard="n"
+      [ "$QUELLE_MODUS" = "loeschen" ] && QUELLE_MODUS="fragen"
+    fi
+  fi
+
+  if [ "$sicher" = true ] && [ "$QUELLE_MODUS" != "behalten" ]; then
+    antwort="$standard"
+    if [ "$QUELLE_MODUS" = "fragen" ]; then
+      if [ -t 0 ]; then
+        hinweis="[J/n]"; [ "$standard" = "n" ] && hinweis="[j/N]"
+        read -r -p "Der Quellordner $QUELLE wird nicht mehr benötigt. Löschen? $hinweis " antwort || antwort=""
+        antwort="${antwort:-$standard}"
+      else
+        antwort="n"   # ohne Terminal nie ungefragt löschen
+      fi
+    fi
+    case "$antwort" in
+      j|J|ja|Ja|y|Y)
+        cd "$HOME"
+        rm -rf -- "$QUELLE"
+        echo "✔ Quellordner entfernt: $QUELLE" ;;
+      *)
+        echo "ℹ Quellordner behalten: $QUELLE (kann jederzeit gelöscht werden)" ;;
+    esac
+  fi
+fi
+
 echo
 echo "Fertig! Starten über:"
 echo "  • Startmenü / Schreibtisch: „Willhaben KI-Agent“"
-echo "  • Terminal:  $DIR/willhaben-agent"
-echo "Updates: beim Start automatisch, oder Einstellungen → „Nach Updates suchen …“ (Terminal: ./willhaben-agent-cli --update)"
+echo "  • Terminal:  willhaben-agent   (bzw. $ZIEL/willhaben-agent)"
+echo "Updates: beim Start automatisch, oder Einstellungen → „Nach Updates suchen …“ (Terminal: willhaben-agent-cli --update)"
+case ":$PATH:" in *":$BIN:"*) ;; *) echo "Hinweis: $BIN ist nicht im PATH – ggf. neu anmelden oder den vollen Pfad nutzen." ;; esac

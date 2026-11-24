@@ -1,0 +1,20 @@
+# Dateien, die eine Installation zum Betrieb und für Updates braucht.
+# Installer und Updater kopieren NUR diese Dateien in den Installationsordner
+# und entfernen dort alles andere (außer .venv, Startskripten und dem Update-Status).
+# Neue Programmdateien hier eintragen, sonst fehlen sie nach einem Update!
+laufzeit-dateien.txt
+VERSION
+requirements.txt
+icon.png
+about_dialog.py
+agent.py
+gui.py
+keys.py
+keys_dialog.py
+pipeline.py
+providers.py
+rating.py
+settings.py
+update_dialog.py
+updater.py
+willhaben.py

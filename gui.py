@@ -163,8 +163,8 @@ class App:
         m.add_command(label="Beenden", command=self.on_close)
         menubar.add_cascade(label="Einstellungen", menu=m)
         h = tk.Menu(menubar, tearoff=0)
-        h.add_command(label="Anleitung: API-Keys holen", command=lambda: open_path(
-            Path(__file__).resolve().parent / "ANLEITUNG-API-KEY.md"))
+        h.add_command(label="Anleitung: API-Key holen ↗", command=lambda: webbrowser.open(
+            f"{updater.REPO_URL}/blob/{updater.BRANCH}/ANLEITUNG-API-KEY.md"))
         h.add_command(label="Gemini-Key erstellen ↗", command=lambda: webbrowser.open("https://aistudio.google.com/apikey"))
         h.add_separator()
         h.add_command(label="Über …", command=self._ueber)

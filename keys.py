@@ -503,7 +503,7 @@ class Verteiler:
                 teile.append(f"{PROVIDER_TITEL[n]} „{e['label']}“: {self.store.status_text(e)}")
         if not teile:
             return ("Kein API-Key eingetragen. Unter „API-Keys & Limits“ mindestens einen Google-Gemini-Key "
-                    "hinzufügen (Anleitung: ANLEITUNG-API-KEY.md).")
+                    "hinzufügen (Anleitung: Hilfe → „Anleitung: API-Key holen“).")
         return "Kein Key mehr verfügbar – alle Limits erreicht oder Keys ungültig:\n  " + "\n  ".join(teile)
 
     # -- Anfrage
