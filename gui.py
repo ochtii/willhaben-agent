@@ -641,7 +641,6 @@ class App:
         self.btn_stop.configure(state="normal")
         self.started_at = datetime.now()
         self._lauf_modus(True, a)
-        self._tick()
         self.nb.select(0)
         self._log(f"Start: {a.suche or kategorien.name(a.kategorie)} · {a.von or 0}–{a.bis or '∞'} € · "
                   f"{region_text(a)} · Top {a.top}", "info")
@@ -661,6 +660,7 @@ class App:
 
         self.worker = threading.Thread(target=work, daemon=True)
         self.worker.start()
+        self._uhr_starten()            # erst jetzt: die Uhr läuft, solange der Such-Thread lebt
 
     def cancel(self):
         if self.worker and self.worker.is_alive():
@@ -816,13 +816,26 @@ class App:
         self.btn_report.configure(state="disabled")
         self._set_result_placeholder()
 
+    def _uhr_starten(self):
+        if getattr(self, "_uhr_job", None):
+            self.root.after_cancel(self._uhr_job)
+        self._uhr_job = None
+        self._tick()
+
+    def _laufzeit_zeigen(self):
+        if not self.started_at:
+            return
+        sek = int((datetime.now() - self.started_at).total_seconds())
+        zeit = f"{sek // 3600}:{sek % 3600 // 60:02d}:{sek % 60:02d}" if sek >= 3600 else f"{sek // 60:02d}:{sek % 60:02d}"
+        self.lbl_time.configure(text=f"⏱ {zeit}")
+        self.lbl_lauf_zeit.configure(text=f"Laufzeit {zeit}")
+
     def _tick(self):
+        """Laufzeit jede Sekunde aktualisieren, solange die Suche läuft (danach bleibt die Endzeit stehen)."""
+        self._uhr_job = None
+        self._laufzeit_zeigen()
         if self.started_at and self.worker and self.worker.is_alive():
-            d = datetime.now() - self.started_at
-            zeit = f"{int(d.total_seconds()) // 60:02d}:{int(d.total_seconds()) % 60:02d}"
-            self.lbl_time.configure(text=f"⏱ {zeit}")
-            self.lbl_lauf_zeit.configure(text=f"Laufzeit {zeit}")
-            self.root.after(1000, self._tick)
+            self._uhr_job = self.root.after(1000, self._tick)
 
     def _log(self, msg: str, tag: str | None = None):
         if tag is None:
@@ -965,6 +978,7 @@ class App:
                 self.tree.item(e.id, tags=("top",), text=f"#{e.rang}  {self.tree.item(e.id, 'text')}")
 
     def _finish(self):
+        self._laufzeit_zeigen()        # Endzeit stehen lassen
         self.btn_start.configure(state="normal")
         self.btn_stop.configure(state="disabled")
         self.progress.anhalten()
