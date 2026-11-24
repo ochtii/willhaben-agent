@@ -199,5 +199,5 @@ echo
 echo "Fertig! Starten über:"
 echo "  • Startmenü / Schreibtisch: „Willhaben KI-Agent“"
 echo "  • Terminal:  willhaben-agent   (bzw. $ZIEL/willhaben-agent)"
-echo "Updates: beim Start automatisch, oder Einstellungen → „Nach Updates suchen …“ (Terminal: willhaben-agent-cli --update)"
+echo "Updates: beim Start automatisch, oder Zahnrad → „Allgemein & Updates“ → „Jetzt nach Updates suchen“ (Terminal: willhaben-agent-cli --update)"
 case ":$PATH:" in *":$BIN:"*) ;; *) echo "Hinweis: $BIN ist nicht im PATH – ggf. neu anmelden oder den vollen Pfad nutzen." ;; esac

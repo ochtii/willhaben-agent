@@ -256,7 +256,7 @@ if ($QuelleVoll -ne $ZielVoll) {
 
 Write-Host ""
 Write-Host "Fertig! Starten ueber das Startmenue oder den Desktop: '$AppName'" -ForegroundColor Cyan
-Write-Host "Updates: beim Start automatisch oder Einstellungen -> 'Nach Updates suchen ...'"
+Write-Host "Updates: beim Start automatisch oder Zahnrad -> 'Allgemein & Updates' -> 'Jetzt nach Updates suchen'"
 Write-Host "Deinstallieren: Einstellungen -> Apps -> '$AppName' (oder $Ziel\deinstallieren.cmd)"
 Write-Host ""
 Read-Host "Enter zum Schliessen" | Out-Null
