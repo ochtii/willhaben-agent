@@ -139,6 +139,10 @@ try {
         }
         if ($sha) { Nativ { & $VenvPy updater.py --status $sha $nummer } }
     }
+    else {
+        # ZIP ohne Git: Stand von GitHub uebernehmen, wenn die Dateien dem neuesten Stand entsprechen
+        Nativ { & $VenvPy updater.py --status-vom-server }
+    }
     Nativ { & $VenvPy updater.py --aufraeumen }
 } finally { Pop-Location }
 

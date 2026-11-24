@@ -97,6 +97,9 @@ if command -v git >/dev/null && git -C "$QUELLE" rev-parse HEAD >/dev/null 2>&1;
     fi
   fi
   .venv/bin/python updater.py --status "$SHA" "$NUMMER"
+else
+  # ZIP ohne Git: Stand von GitHub übernehmen, wenn die Dateien dem neuesten Stand entsprechen
+  .venv/bin/python updater.py --status-vom-server || true
 fi
 .venv/bin/python updater.py --aufraeumen
 

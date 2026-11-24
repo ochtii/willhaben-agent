@@ -4,6 +4,9 @@ Die Versionsnummer lautet `<VERSION>.<N>`: `VERSION` steht in der gleichnamigen 
 **N** zählt die Commits seit der letzten Änderung dieser Datei und steigt mit jedem Push automatisch.
 Die App zeigt diesen Verlauf im Über-Fenster (**?** rechts oben) unter „Neuigkeiten“.
 
+## 1.2.10 – 2026-11-24
+- Installation aus dem ZIP (ohne Git): Der Installer erkennt jetzt selbst, welche Version installiert wurde – vorher stand dort bis zum ersten Update „1.2.?“ und es wurde unnötig ein Update angeboten
+
 ## 1.2.9 – 2026-11-24
 - Behoben: Die Update-Prüfung konnte mit „GitHub-Abfragelimit erreicht“ scheitern. Sie nutzt jetzt nicht mehr die GitHub-API (nur 60 Abfragen pro Stunde ohne Anmeldung), sondern das Git-Protokoll und die Rohdateien – dafür gilt dieses Limit nicht
 - Das Update-Fenster zeigt jetzt die verständlichen Änderungen aus dem Versionsverlauf statt technischer Commit-Texte

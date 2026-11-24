@@ -66,6 +66,7 @@ Danach einen **API-Key** holen (am einfachsten und kostenlos: Google Gemini) und
 - **Terminal:** `willhaben-agent-cli --version` bzw. `willhaben-agent-cli --update`
 - **Versionsnummer** `1.2.N`: `1.2` steht in der Datei `VERSION` (für größere Sprünge von Hand ändern). **N zählt die Commits seit der letzten Änderung von `VERSION`** und steigt bei jedem Push automatisch. Der Commit, der `VERSION` ändert, ist `.0`.
 - **Versionsverlauf:** `CHANGELOG.md`, in der App über das **?** rechts oben → „Neuigkeiten“.
+- **Neu installieren statt updaten:** ZIP von GitHub laden und den Installer erneut starten – Keys, Einstellungen und Ergebnisse bleiben erhalten, die installierte Version wird automatisch erkannt.
 - **Aufräumen:** Ein Update übernimmt nur die Dateien, die laut `laufzeit-dateien.txt` der neuen Version gebraucht werden, und löscht im Installationsordner alles andere. Neue Programmdateien müssen deshalb in `laufzeit-dateien.txt` eingetragen werden.
 - **So wird installiert:**
   - Bei einem Git-Klon per `git pull`. Lokal geänderte Programmdateien werden nie überschrieben, das Update bricht dann mit Hinweis ab.

@@ -278,6 +278,18 @@ def remote_stand(timeout: float = 8, sha: str | None = None) -> tuple[Stand, lis
     return Stand(sha, nummer, datum, nachricht, basis), eintraege
 
 
+def status_vom_server(app_dir: Path = APP_DIR, timeout: float = 8) -> bool:
+    """Für ZIP-Installationen ohne Git: Entsprechen die installierten Programmdateien dem neuesten Stand auf GitHub,
+    wird dieser Stand (Commit + Versionsnummer) gemerkt. Sonst bleibt der Stand unbekannt."""
+    stand, _ = remote_stand(timeout)
+    for datei in ("gui.py", "updater.py", "providers.py", "VERSION"):
+        lokal = (app_dir / datei).read_bytes().replace(b"\r\n", b"\n") if (app_dir / datei).exists() else None
+        if lokal is None or lokal != _remote_text(datei, timeout, stand.sha).encode("utf-8").replace(b"\r\n", b"\n"):
+            return False
+    _status_schreiben(app_dir, stand, laufzeit_dateien(app_dir))
+    return True
+
+
 def verlauf(anzahl: int = 12, timeout: float = 8) -> list[dict]:
     """Versionsverlauf aus CHANGELOG.md auf GitHub: [{version, datum, punkte: [...]}], neueste zuerst."""
     return _changelog_lesen(_remote_text("CHANGELOG.md", timeout))[:anzahl]
@@ -434,7 +446,14 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Hilfsbefehle für den Installer")
     ap.add_argument("--aufraeumen", action="store_true", help="nicht benötigte Dateien im Installationsordner entfernen")
     ap.add_argument("--status", nargs=2, metavar=("SHA", "NUMMER"), help="installierten Stand merken")
+    ap.add_argument("--status-vom-server", action="store_true",
+                    help="ZIP-Installation ohne Git: Stand von GitHub übernehmen, wenn die Dateien übereinstimmen")
     a = ap.parse_args()
+    if a.status_vom_server and not _status_lesen(APP_DIR).get("sha"):
+        try:
+            print("Stand:", "erkannt" if status_vom_server() else "nicht eindeutig (wird beim ersten Update gesetzt)")
+        except Exception as e:                       # offline o.ä. – kein Problem, nur ohne Versionsnummer
+            print(f"Stand nicht ermittelbar ({type(e).__name__})")
     if a.status:
         _status_schreiben(APP_DIR, Stand(a.status[0], int(a.status[1]) if a.status[1].isdigit() else None),
                           laufzeit_dateien(APP_DIR))
