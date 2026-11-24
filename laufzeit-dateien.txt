@@ -9,6 +9,7 @@ icon.png
 icon.ico
 about_dialog.py
 agent.py
+berichte.py
 bezirk_dialog.py
 einstellungen_dialog.py
 gui.py

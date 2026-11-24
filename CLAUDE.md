@@ -39,5 +39,5 @@
 - Oberfläche: Tkinter + sv-ttk; keine Farb-Emojis in Tk-Widgets (siehe `tk_safe` in `gui.py`).
 
 ## Prüfen vor dem Push
-- `python -c "import gui, agent, keys, keys_dialog, pipeline, rating, providers, updater, about_dialog, bezirk_dialog, einstellungen_dialog, kategorien, theme, plattform"`
+- `python -c "import gui, agent, keys, keys_dialog, pipeline, rating, providers, updater, about_dialog, berichte, bezirk_dialog, einstellungen_dialog, kategorien, theme, plattform"`
 - GUI in Hell und Dunkel unter `xvfb-run` ansehen, wenn sich die Oberfläche ändert.

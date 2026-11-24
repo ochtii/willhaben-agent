@@ -41,6 +41,7 @@ from pipeline import Auftrag, Ereignisse, run, region_text  # noqa: E402
 from bezirk_dialog import BezirkDialog, kurzname  # noqa: E402
 from keys import KeyStore, KIFehler, maskiert  # noqa: E402
 from keys_dialog import _zahl  # noqa: E402
+from berichte import BerichteTab  # noqa: E402
 from einstellungen_dialog import EinstellungenDialog  # noqa: E402
 import updater  # noqa: E402
 from update_dialog import UpdateDialog  # noqa: E402
@@ -55,6 +56,8 @@ BUNDESLAENDER = [("Wien", "wien"), ("Niederösterreich", "niederoesterreich"), (
                  ("Tirol", "tirol"), ("Vorarlberg", "vorarlberg"), ("Burgenland", "burgenland")]
 ALLE_KAT = "Alle Kategorien"
 ALLE_UNTER = "(alle Unterkategorien)"
+PHASEN_TEXT = {"Suche": "Durchsuche willhaben", "Details": "Lade Beschreibungen", "KI-Bewertung": "KI bewertet",
+               "Endvergleich": "KI vergleicht die Besten", "Fertig": "Fertig"}
 PHASES = ["Suche", "Details", "KI-Bewertung", "Endvergleich", "Fertig"]
 
 
@@ -175,8 +178,13 @@ class App:
         self.btn_start.pack(side="left", fill="x", expand=True, ipady=4)
         self.btn_stop = ttk.Button(bf, text="■  Stopp", command=self.cancel, state="disabled")
         self.btn_stop.pack(side="left", padx=(6, 0))
-        canvas = tk.Canvas(left_outer, highlightthickness=0, width=380, bg=P["bg"])
-        sb = ttk.Scrollbar(left_outer, orient="vertical", command=canvas.yview)
+        # Während der Suche ersetzt die Lauf-Ansicht das Formular
+        self.frm_lauf = ttk.Frame(left_outer)
+        self._lauf_ansicht_bauen(self.frm_lauf)
+        self.frm_eingabe = ttk.Frame(left_outer)
+        self.frm_eingabe.pack(fill="both", expand=True)
+        canvas = tk.Canvas(self.frm_eingabe, highlightthickness=0, width=380, bg=P["bg"])
+        sb = ttk.Scrollbar(self.frm_eingabe, orient="vertical", command=canvas.yview)
         form = ttk.Frame(canvas, padding=(0, 0, 10, 0))
         form.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         win = canvas.create_window((0, 0), window=form, anchor="nw")
@@ -198,8 +206,20 @@ class App:
         f.pack(fill="x", pady=5)
         ttk.Label(f, text="Suchbegriff (optional)").grid(row=0, column=0, sticky="w")
         self.var_suche = tk.StringVar()
-        ttk.Entry(f, textvariable=self.var_suche, width=10).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 6))
-        ttk.Label(f, text="Kategorie").grid(row=2, column=0, sticky="w")
+        self.ent_suche = ttk.Entry(f, textvariable=self.var_suche, width=10, style="Suche.TEntry")
+        self.ent_suche.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        # „✕“ rechts im Feld leert den Suchbegriff (nur sichtbar, wenn etwas drinsteht)
+        self.btn_suche_leeren = tk.Label(f, text="✕", font=(plattform.SYMBOL, 10), cursor="hand2",
+                                         bg=P["feld"], fg=P["muted"], padx=4)    # Farbe des Eingabefelds
+        self.btn_suche_leeren.bind("<Button-1>", lambda e: (self.var_suche.set(""), self.ent_suche.focus_set()))
+        self.btn_suche_leeren.bind("<Enter>", lambda e: self.btn_suche_leeren.configure(fg=P["danger"]))
+        self.btn_suche_leeren.bind("<Leave>", lambda e: self.btn_suche_leeren.configure(fg=P["muted"]))
+        self.var_suche.trace_add("write", lambda *a: self._suche_x_anzeigen())
+        kopf = ttk.Frame(f)
+        kopf.grid(row=2, column=0, columnspan=2, sticky="ew")
+        ttk.Label(kopf, text="Kategorie").pack(side="left")
+        self.btn_kat_reset = ttk.Label(kopf, text="↺ zurücksetzen", style="Link.TLabel", cursor="hand2")
+        self.btn_kat_reset.bind("<Button-1>", lambda e: self._kat_setzen("alle"))
         self.var_kat = tk.StringVar(value=kategorien.pfad("laptops"))      # willhaben-Pfad der Auswahl
         kf = ttk.Frame(f)
         kf.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 6))
@@ -289,8 +309,8 @@ class App:
         # Phasen als Stepper + Fortschritt
         self.stepper = theme.Stepper(right, PHASES)
         self.stepper.pack(fill="x")
-        self.progress = ttk.Progressbar(right, mode="determinate")
-        self.progress.pack(fill="x", pady=(2, 4))
+        self.progress = theme.Fortschritt(right, hoehe=8)
+        self.progress.pack(fill="x", pady=(4, 6))
         zeile = ttk.Frame(right)
         zeile.pack(fill="x")
         self.lbl_status = ttk.Label(zeile, text="Bereit", style="Status.TLabel")
@@ -379,6 +399,80 @@ class App:
         t.tag_configure("dim", foreground=P["muted"])
         self._set_result_placeholder()
 
+        # Tab 4: vergangene Berichte
+        self.berichte_tab = BerichteTab(self.nb, self._outdir)
+        self.nb.add(self.berichte_tab, text="  Berichte  ")
+        self.nb.bind("<<NotebookTabChanged>>", lambda e: self.nb.index("current") == 3
+                     and self.berichte_tab.aktualisieren())
+
+    # ------------------------------------------------------------------ Lauf-Ansicht
+    def _lauf_ansicht_bauen(self, f):
+        """Ersetzt während der Suche das Formular: Animation, Phase, Fortschritt und die Suchparameter."""
+        ttk.Label(f, text="Suche läuft", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(f, text="Die Sucheinstellungen sind bis zum Ende gesperrt.", style="Sub.TLabel").pack(anchor="w")
+        self.lauf_anim = theme.SuchAnimation(f, groesse=180)
+        self.lauf_anim.pack(pady=(18, 8))
+        self.lbl_lauf_phase = ttk.Label(f, text="", font=(theme.FONT, 13, "bold"), foreground=P["accent"])
+        self.lbl_lauf_phase.pack()
+        zeile = ttk.Frame(f)
+        zeile.pack(fill="x", pady=(10, 2))
+        self.lbl_lauf_schritt = ttk.Label(zeile, text="", style="Status.TLabel")
+        self.lbl_lauf_schritt.pack(side="left")
+        self.lbl_lauf_prozent = ttk.Label(zeile, text="", font=(theme.FONT, 9, "bold"))
+        self.lbl_lauf_prozent.pack(side="right")
+        self.lauf_balken = theme.Fortschritt(f, hoehe=12)
+        self.lauf_balken.pack(fill="x")
+        self.lbl_lauf_zeit = ttk.Label(f, text="", style="Status.TLabel")
+        self.lbl_lauf_zeit.pack(anchor="e", pady=(2, 0))
+        karte = tk.Frame(f, bg=P["card"], highlightthickness=1, highlightbackground=P["rand"], padx=14, pady=10)
+        karte.pack(fill="x", pady=(16, 0))
+        tk.Label(karte, text="Suchauftrag", bg=P["card"], fg=P["accent"], font=(theme.FONT, 10, "bold")).pack(
+            anchor="w", pady=(0, 4))
+        self.frm_lauf_auftrag = tk.Frame(karte, bg=P["card"])
+        self.frm_lauf_auftrag.pack(fill="x")
+
+    def _lauf_modus(self, an: bool, a: Auftrag | None = None):
+        """Formular aus- und Lauf-Ansicht einblenden (und umgekehrt)."""
+        if an:
+            for w in self.frm_lauf_auftrag.winfo_children():
+                w.destroy()
+            zeilen = [("Suche", a.suche or "–"), ("Kategorie", kategorien.name(a.kategorie) if not a.url else "eigene URL"),
+                      ("Preis", f"{a.von or 0} – {a.bis or '∞'} €"), ("Region", region_text(a)),
+                      ("Top", str(a.top)), ("KI", self.store.optionen.get("anbieter", "gemini"))]
+            zeilen[-1] = ("KI", PROVIDER_TITEL.get(zeilen[-1][1], zeilen[-1][1]))
+            if a.beschreibung:
+                zeilen.insert(2, ("Wunsch", a.beschreibung))
+            for i, (k, v) in enumerate(zeilen):
+                tk.Label(self.frm_lauf_auftrag, text=k, bg=P["card"], fg=P["muted"], font=(theme.FONT, 9)).grid(
+                    row=i, column=0, sticky="nw", padx=(0, 10), pady=1)
+                tk.Label(self.frm_lauf_auftrag, text=tk_safe(v), bg=P["card"], fg=P["fg"], font=(theme.FONT, 9),
+                         wraplength=250, justify="left").grid(row=i, column=1, sticky="w", pady=1)
+            self.lbl_lauf_phase.configure(text="Starte …")
+            self.lbl_lauf_schritt.configure(text="")
+            self.lbl_lauf_prozent.configure(text="")
+            self.lbl_lauf_zeit.configure(text="Laufzeit 00:00")
+            self.frm_eingabe.pack_forget()
+            self.frm_lauf.pack(fill="both", expand=True)
+            self.btn_start.pack_forget()
+            self.btn_stop.pack(side="left", fill="x", expand=True, padx=0, ipady=4)
+            self.lauf_anim.start()
+            self.lauf_balken.unbestimmt()
+        else:
+            self.lauf_anim.stop()
+            self.lauf_balken.anhalten()
+            self.frm_lauf.pack_forget()
+            self.frm_eingabe.pack(fill="both", expand=True)
+            self.btn_stop.pack_forget()
+            self.btn_start.pack(side="left", fill="x", expand=True, ipady=4)
+            self.btn_stop.pack(side="left", padx=(6, 0))
+
+    def _suche_x_anzeigen(self):
+        if self.var_suche.get():
+            self.btn_suche_leeren.place(in_=self.ent_suche, relx=1.0, rely=0.5, x=-6, anchor="e")
+            self.btn_suche_leeren.lift()
+        else:
+            self.btn_suche_leeren.place_forget()
+
     # ------------------------------------------------------------------ Kategorie
     def _kat_setzen(self, wert: str):
         """Kategorie (Kurzname oder Pfad) in beide Auswahllisten und den Beispieltext übernehmen."""
@@ -387,13 +481,16 @@ class App:
         self.var_kat.set(p if i is not None else kategorien.MARKTPLATZ)
         if i is None:
             self.var_kat_haupt.set(ALLE_KAT)
-            self.cb_kat_unter.configure(values=[], state="disabled")
             self.var_kat_unter.set("")
+            self.cb_kat_unter.grid_remove()           # Unterkategorie nur zeigen, wenn eine Kategorie gewählt ist
+            self.btn_kat_reset.pack_forget()
         else:
             haupt = kategorien.BAUM[i]
             self.var_kat_haupt.set(haupt[0])
             self.cb_kat_unter.configure(values=[ALLE_UNTER] + [u[0] for u in haupt[3]], state="readonly")
             self.var_kat_unter.set(haupt[3][j][0] if j is not None else ALLE_UNTER)
+            self.cb_kat_unter.grid()
+            self.btn_kat_reset.pack(side="right")
         self.lbl_beispiel.configure(text=f"z.B. „{kategorien.beispiel(self.var_kat.get())}“")
 
     def _kat_haupt_gewaehlt(self):
@@ -547,6 +644,7 @@ class App:
         self.btn_start.configure(state="disabled")
         self.btn_stop.configure(state="normal")
         self.started_at = datetime.now()
+        self._lauf_modus(True, a)
         self._tick()
         self.nb.select(0)
         self._log(f"Start: {a.suche or kategorien.name(a.kategorie)} · {a.von or 0}–{a.bis or '∞'} € · "
@@ -714,7 +812,8 @@ class App:
         self.tree.delete(*self.tree.get_children())
         for v in self.counter.values():
             v.set("0")
-        self.progress.configure(value=0, maximum=1)
+        self.progress.leeren()
+        self.lauf_balken.leeren()
         self.stepper.setzen(-1)
         self.result_file = None
         self._marktlage = ("", [])
@@ -724,7 +823,9 @@ class App:
     def _tick(self):
         if self.started_at and self.worker and self.worker.is_alive():
             d = datetime.now() - self.started_at
-            self.lbl_time.configure(text=f"⏱ {int(d.total_seconds()) // 60:02d}:{int(d.total_seconds()) % 60:02d}")
+            zeit = f"{int(d.total_seconds()) // 60:02d}:{int(d.total_seconds()) % 60:02d}"
+            self.lbl_time.configure(text=f"⏱ {zeit}")
+            self.lbl_lauf_zeit.configure(text=f"Laufzeit {zeit}")
             self.root.after(1000, self._tick)
 
     def _log(self, msg: str, tag: str | None = None):
@@ -742,15 +843,21 @@ class App:
     def _set_phase(self, name, done, total):
         if name in PHASES:
             self.stepper.setzen(PHASES.index(name), fertig=(name == "Fertig"))
+        lauf = self.worker is not None and self.worker.is_alive()
         if total:
-            if str(self.progress.cget("mode")) == "indeterminate":
-                self.progress.stop()      # stop() setzt den Wert auf 0 -> nur im Lauf-Modus aufrufen
-            self.progress.configure(mode="determinate", maximum=total, value=done)
-            self.lbl_status.configure(text="Fertig" if name == "Fertig" else f"{name}: {done} / {total}")
+            for balken in (self.progress, self.lauf_balken):
+                balken.setzen(done, total) if lauf and name != "Fertig" else balken.anhalten(voll=True)
+            text = "Fertig" if name == "Fertig" else f"{name}: {done} / {total}"
+            prozent = f"{100 * done / total:.0f} %" if total else ""
         else:
-            self.progress.configure(mode="indeterminate")
-            self.progress.start(15)
-            self.lbl_status.configure(text=f"{name} …")
+            for balken in (self.progress, self.lauf_balken):
+                balken.unbestimmt()
+            text, prozent = f"{name} …", ""
+        self.lbl_status.configure(text=text)
+        self.lbl_lauf_phase.configure(text=PHASEN_TEXT.get(name, name))
+        self.lbl_lauf_schritt.configure(text=(f"{done} von {total}" if total else "bitte warten …"))
+        self.lbl_lauf_prozent.configure(text=prozent)
+        if not total:
             return
         if name == "Details":
             self.counter["details"].set(str(done))
@@ -864,8 +971,8 @@ class App:
     def _finish(self):
         self.btn_start.configure(state="normal")
         self.btn_stop.configure(state="disabled")
-        if str(self.progress.cget("mode")) == "indeterminate":
-            self.progress.stop()
+        self.progress.anhalten()
+        self._lauf_modus(False)
 
     def _poll(self):
         try:
@@ -901,6 +1008,7 @@ class App:
                     self.result_file = md_file
                     self.btn_report.configure(state="normal")
                     self._show_result(erg, md_file, by_id)
+                    self.berichte_tab.auswaehlen(md_file)
                     self.nb.select(2)
                 elif kind == "done":
                     self._finish()

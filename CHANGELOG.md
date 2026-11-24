@@ -4,6 +4,14 @@ Die Versionsnummer lautet `<VERSION>.<N>`: `VERSION` steht in der gleichnamigen 
 **N** zählt die Commits seit der letzten Änderung dieser Datei und steigt mit jedem Push automatisch.
 Die App zeigt diesen Verlauf unter Hilfe → Über → „Neuigkeiten“.
 
+## 1.2.3 – 2026-11-24
+- Neu: Reiter „Berichte“ mit allen früheren Suchläufen – neueste zuerst, formatiert lesbar mit klickbaren Links, auch löschbar
+- Während der Suche werden die Sucheinstellungen ausgeblendet. Stattdessen zeigen eine Animation, die aktuelle Phase, ein moderner Fortschrittsbalken mit Prozent und der Suchauftrag, dass die Suche läuft
+- Neuer Fortschrittsbalken mit Farbverlauf und wanderndem Lichtreflex
+- Suchfeld: „✕“ zum Leeren des Suchbegriffs
+- Kategorie: „↺ zurücksetzen“ stellt auf „Alle Kategorien“; die Unterkategorie erscheint nur, wenn eine Kategorie gewählt ist
+- Hintergrundfarbe im hellen Design vereinheitlicht
+
 ## 1.2.2 – 2026-11-24
 - Behoben: Im Über-Fenster waren die Knöpfe unten („Nach Updates suchen“, „GitHub öffnen“, „Schließen“) bei kleineren Bildschirmen oder größerer Schrift abgeschnitten – sie bleiben jetzt immer sichtbar
 - Das Über-Fenster passt seine Höhe an den Bildschirm an; passt ein Reiter nicht hinein, erscheint eine Bildlaufleiste (auch mit dem Mausrad bedienbar)

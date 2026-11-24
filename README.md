@@ -86,11 +86,14 @@ Modernes Erscheinungsbild (Sun-Valley-Theme), wahlweise **hell oder dunkel**: Ei
 | **Einstellungen → KI-Anbieter & Keys** | **Anbieter** wählen (Gemini, ChatGPT, Claude, Perplexity, Mistral, DeepSeek, Grok, Groq, OpenRouter, Together, eigene Adresse). Daneben **„Anleitung: …-Key holen“**: Schritt-für-Schritt-Anleitung für genau diesen Anbieter mit Link zur Key-Seite. **Modell** und **Ausweichmodell** aus der Liste der für deinen Key verfügbaren Modelle (passt sich automatisch an, wenn ein Modell fehlt). Beliebig viele Keys je Anbieter: hinzufügen, ändern, testen, ein- und ausschalten, Reihenfolge festlegen, Verteilung gleichmäßig oder nacheinander. Verbrauch und Limits werden live angezeigt. |
 | **Einstellungen → Darstellung** | Hell oder Dunkel (mit Vorschau) |
 | **Einstellungen → Allgemein & Updates** | Ergebnis-Ordner ändern/öffnen, Update-Prüfung beim Start, „Jetzt nach Updates suchen“, Speicherort der Einstellungen und Keys |
-| **Fortschritt** | Stepper Suche → Details → KI-Bewertung → Endvergleich → Fertig, darunter Fortschrittsbalken und Laufzeit, dazu vier Kacheln (gefunden, Beschreibungen, KI-bewertet, passend) |
+| **Während der Suche** | Das Formular wird ausgeblendet. Stattdessen zeigt die linke Spalte eine Animation, die aktuelle Phase, einen eigenen Fortschrittsbalken mit Prozent und Laufzeit sowie den Suchauftrag. Danach erscheint das Formular wieder. |
+| **Fortschritt** | Stepper Suche → Details → KI-Bewertung → Endvergleich → Fertig, darunter ein Fortschrittsbalken mit Farbverlauf und Laufzeit, dazu vier Kacheln (gefunden, Beschreibungen, KI-bewertet, passend) |
 | **Live-Protokoll** | Terminal-Ansicht: jede Seite, jede Wartezeit, jede KI-Anfrage |
 | **Anzeigen** | Tabelle, die sich live füllt: Preis, Ort, Zustand, KI-Werte für Leistung und Preis/Leistung. Grün = passend, grau = aussortiert, gelb = Top-Liste. Klick auf eine Spalte sortiert, Klick auf eine Zeile zeigt die KI-Begründung, Doppelklick öffnet die Anzeige im Browser. |
 | **Ergebnis** | Top-N mit Vor-/Nachteilen, Fazit, Tipp und Links zu den Anzeigen. Wird zusätzlich als Markdown-Bericht gespeichert. |
+| **Berichte** | Alle früheren Berichte aus dem Ergebnis-Ordner, neueste zuerst (Suche, Datum, Budget, Top-N). Ein Klick zeigt den Bericht formatiert mit klickbaren Links an. Dazu „Datei öffnen“, „Ordner öffnen“ und „Löschen“ (entfernt Bericht und zugehörige JSON-Dateien, nach Rückfrage). |
 | **Stopp** | bricht jederzeit sauber ab |
+| **Suchfeld / Kategorie** | „✕“ im Suchfeld leert den Suchbegriff. „↺ zurücksetzen“ neben „Kategorie“ stellt auf „Alle Kategorien“. Das zweite Auswahlfeld (Unterkategorie) erscheint nur, wenn eine Kategorie gewählt ist. |
 
 Ergebnisse landen in `~/willhaben-ergebnisse/`:
 - `…-topN.md` – der Bericht
@@ -136,6 +139,7 @@ Für spezielle Filter (z. B. Marke, Unter-Unterkategorie): Suche im Browser auf 
 | `agent.py` | Terminal-Version |
 | `pipeline.py` | gemeinsamer Ablauf |
 | `willhaben.py` | Scraper |
+| `berichte.py` | Reiter „Berichte“: frühere Berichte auflisten, formatiert anzeigen, löschen |
 | `kategorien.py` | alle willhaben-Kategorien mit Pfad, Kurzname und Beispieltext |
 | `rating.py` | KI-Bewertung (Prompts, Pakete, Endvergleich) |
 | `providers.py` | Anbindung an alle KI-Anbieter (Gemini, Claude per `anthropic`-SDK, OpenAI-kompatible), Fehler- und Limit-Erkennung |

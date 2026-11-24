@@ -11,16 +11,16 @@ from tkinter import ttk
 
 PALETTEN = {
     "hell": {
-        "bg": "#f3f5f8", "fg": "#1b1d21", "muted": "#667085", "card": "#ffffff", "rand": "#e3e7ee",
+        "bg": "#fafafa", "fg": "#1b1d21", "muted": "#667085", "card": "#ffffff", "rand": "#e3e7ee",
         "accent": "#0b6bcb", "accent2": "#12a36b", "accent_hell": "#e7f1fc", "ok": "#15803d", "warn": "#b45309",
-        "danger": "#c0262d", "gold": "#d29a00", "text_bg": "#ffffff", "text_fg": "#1b1d21",
+        "danger": "#c0262d", "gold": "#d29a00", "text_bg": "#ffffff", "feld": "#fdfdfd", "text_fg": "#1b1d21",
         "term_bg": "#11151c", "term_fg": "#d5dae3", "term_dim": "#6b7484",
         "zeile_ok": "#e8f6ee", "zeile_top": "#fff4cf", "zeile_aus": "#9aa1ad", "tipp_bg": "#fff4cf",
     },
     "dunkel": {
         "bg": "#1c1c1c", "fg": "#f2f2f2", "muted": "#a3a8b3", "card": "#262626", "rand": "#363a40",
         "accent": "#4ca2ff", "accent2": "#2fcf8e", "accent_hell": "#1f3550", "ok": "#4ade80", "warn": "#fbbf24",
-        "danger": "#f87171", "gold": "#facc15", "text_bg": "#232323", "text_fg": "#f2f2f2",
+        "danger": "#f87171", "gold": "#facc15", "text_bg": "#232323", "feld": "#292929", "text_fg": "#f2f2f2",
         "term_bg": "#0e1116", "term_fg": "#d5dae3", "term_dim": "#6b7484",
         "zeile_ok": "#1f3a2b", "zeile_top": "#4a3f12", "zeile_aus": "#7d838e", "tipp_bg": "#3d3511",
     },
@@ -70,6 +70,13 @@ def anwenden(root: tk.Misc, modus: str = "hell") -> dict:
     st.configure("CardSub.TLabel", background=P["card"], foreground=P["muted"], font=(FONT, 9))
     st.configure("Status.TLabel", foreground=P["muted"], font=(FONT, 9))
     st.configure("Horizontal.TProgressbar", thickness=6)
+    pad = st.lookup("TEntry", "padding") or ""
+    try:                                 # Platz rechts im Suchfeld für den „✕“-Knopf
+        werte = [int(float(x)) for x in str(pad).split()] or [8]
+    except ValueError:
+        werte = [8]
+    werte = (werte * 4)[:4] if len(werte) < 4 else werte[:4]
+    st.configure("Suche.TEntry", padding=(werte[0], werte[1], 28, werte[3]))
     return P
 
 
@@ -212,3 +219,173 @@ class Kopfleiste(tk.Canvas):
         self.create_oval(x1, y1, x1 + 2 * r, y2, fill=farbe, outline="")
         self.create_oval(x2 - 2 * r, y1, x2, y2, fill=farbe, outline="")
         self.create_rectangle(x1 + r, y1, x2 - r, y2, fill=farbe, outline="")
+
+
+def _runde_leiste(c: tk.Canvas, x1, y1, x2, y2, farbe, tag=""):
+    """Waagrechter Balken mit runden Enden (Tk kennt keine abgerundeten Rechtecke)."""
+    r = (y2 - y1) / 2
+    if x2 - x1 < 2 * r:
+        x2 = x1 + 2 * r
+    c.create_oval(x1, y1, x1 + 2 * r, y2, fill=farbe, outline="", tags=tag)
+    c.create_oval(x2 - 2 * r, y1, x2, y2, fill=farbe, outline="", tags=tag)
+    c.create_rectangle(x1 + r, y1, x2 - r, y2, fill=farbe, outline="", tags=tag)
+
+
+class Fortschritt(tk.Canvas):
+    """Moderner Fortschrittsbalken: runde Enden, Farbverlauf und wandernder Lichtreflex.
+
+    setzen(wert, maximum) -> bestimmter Fortschritt; unbestimmt() -> gleitendes Segment;
+    anhalten() stoppt die Animation (der Balken bleibt stehen); leeren() setzt auf 0 zurück.
+    """
+
+    def __init__(self, master, hoehe: int = 10, hintergrund: str | None = None):
+        super().__init__(master, height=hoehe, highlightthickness=0, bd=0, bg=hintergrund or P["bg"])
+        self.hoehe = hoehe
+        self.wert, self.maximum = 0.0, 1.0
+        self.modus = "bestimmt"
+        self.laeuft = False
+        self._phase = 0.0
+        self._job = None
+        self.bind("<Configure>", lambda e: self.zeichnen())
+
+    # -- Steuerung
+    def setzen(self, wert: float, maximum: float):
+        self.modus = "bestimmt"
+        self.wert, self.maximum = float(wert), float(maximum or 1)
+        self._starten()
+
+    def unbestimmt(self):
+        self.modus = "unbestimmt"
+        self._starten()
+
+    def anhalten(self, voll: bool = False):
+        self.laeuft = False
+        if voll:
+            self.modus, self.wert, self.maximum = "bestimmt", 1.0, 1.0
+        if self.modus == "unbestimmt":
+            self.modus, self.wert = "bestimmt", 0.0
+        self.zeichnen()
+
+    def leeren(self):
+        self.laeuft = False
+        self.modus, self.wert, self.maximum = "bestimmt", 0.0, 1.0
+        self.zeichnen()
+
+    def _starten(self):
+        self.laeuft = True
+        if self._job is None:
+            self._takt()
+        else:
+            self.zeichnen()
+
+    def _takt(self):
+        self._job = None
+        if not self.winfo_exists():
+            return
+        self._phase = (self._phase + 0.012) % 1.0
+        self.zeichnen()
+        if self.laeuft:
+            self._job = self.after(33, self._takt)
+
+    # -- Zeichnen
+    def zeichnen(self):
+        self.delete("all")
+        w, h = max(self.winfo_width(), 50), self.hoehe
+        _runde_leiste(self, 0, 0, w, h, P["rand"])
+        a, b = P["accent"], P["accent2"]
+        if self.modus == "unbestimmt":
+            breite = w * 0.28
+            t = self._phase * 2 if self._phase < 0.5 else 2 - self._phase * 2      # hin und her
+            t = t * t * (3 - 2 * t)                                                  # weich
+            x1 = (w - breite) * t
+            self._verlauf(x1, x1 + breite, h, a, b, glanz=None)
+            return
+        anteil = max(0.0, min(1.0, self.wert / self.maximum)) if self.maximum else 0.0
+        if anteil <= 0:
+            return
+        x2 = max(h, w * anteil)
+        glanz = (self._phase * 1.6 - 0.3) * x2 if self.laeuft else None
+        self._verlauf(0, x2, h, a, b, glanz=glanz)
+
+    def _verlauf(self, x1, x2, h, a, b, glanz):
+        r = h / 2
+        schritt = 4
+        n = max(1, int((x2 - x1 - 2 * r) / schritt))
+        breite = (x2 - x1 - 2 * r) / n if x2 - x1 > 2 * r else 0
+
+        def farbe(x):
+            f = mix(a, b, max(0.0, min(1.0, x / max(1, self.winfo_width()))))
+            if glanz is not None:
+                naehe = max(0.0, 1 - abs(x - glanz) / 38)
+                f = mix(f, "#ffffff", 0.45 * naehe * naehe)
+            return f
+        self.create_oval(x1, 0, x1 + h, h, fill=farbe(x1), outline="")
+        self.create_oval(x2 - h, 0, x2, h, fill=farbe(x2), outline="")
+        for i in range(n):
+            sx = x1 + r + i * breite
+            self.create_rectangle(sx, 0, sx + breite + 1, h, fill=farbe(sx + breite / 2), outline="")
+
+
+class SuchAnimation(tk.Canvas):
+    """Animation „Suche läuft“: Lupe in der Mitte, kreisende Bögen, pulsierende Ringe und Punkte."""
+
+    def __init__(self, master, groesse: int = 170, hintergrund: str | None = None):
+        super().__init__(master, width=groesse, height=groesse, highlightthickness=0, bd=0,
+                         bg=hintergrund or P["bg"])
+        self.groesse = groesse
+        self._t = 0.0
+        self._job = None
+        self.zeichnen()
+
+    def start(self):
+        if self._job is None:
+            self._takt()
+
+    def stop(self):
+        if self._job is not None:
+            self.after_cancel(self._job)
+            self._job = None
+        self._t = 0.0
+        self.zeichnen()
+
+    def _takt(self):
+        if not self.winfo_exists():
+            return
+        self._t += 1 / 30
+        self.zeichnen()
+        self._job = self.after(33, self._takt)
+
+    def zeichnen(self):
+        import math
+        self.delete("all")
+        g, t = self.groesse, self._t
+        cx = cy = g / 2
+        bg, a, b = self.cget("bg"), P["accent"], P["accent2"]
+        # pulsierende Ringe (laufen nach außen und verblassen)
+        for k in range(3):
+            p = ((t * 0.55) + k / 3) % 1.0
+            r = 34 + p * (g / 2 - 38)
+            self.create_oval(cx - r, cy - r, cx + r, cy + r, outline=mix(a, bg, p), width=2)
+        # kreisende Bögen
+        for r, tempo, farbe, laenge in ((g * 0.36, 140, a, 80), (g * 0.29, -200, b, 60)):
+            start = (t * tempo) % 360
+            self.create_arc(cx - r, cy - r, cx + r, cy + r, start=start, extent=laenge, style="arc",
+                            outline=farbe, width=4)
+            self.create_arc(cx - r, cy - r, cx + r, cy + r, start=start + 180, extent=laenge * 0.5, style="arc",
+                            outline=mix(farbe, bg, 0.45), width=4)
+        # umlaufende Punkte
+        for k in range(3):
+            w = t * 1.6 + k * 2 * math.pi / 3
+            r = g * 0.43
+            x, y = cx + r * math.cos(w), cy + r * math.sin(w)
+            d = 3.2 + 1.3 * math.sin(t * 4 + k)
+            self.create_oval(x - d, y - d, x + d, y + d, fill=mix(a, b, k / 2), outline="")
+        # Mitte: Kreis mit Lupe, leicht „atmend“
+        s = 1 + 0.05 * math.sin(t * 3)
+        r = 26 * s
+        self.create_oval(cx - r, cy - r, cx + r, cy + r, fill=mix(a, b, 0.5 + 0.5 * math.sin(t)), outline="")
+        lr = 9 * s
+        lx, ly = cx - 3 * s, cy - 3 * s
+        self.create_oval(lx - lr, ly - lr, lx + lr, ly + lr, outline="#ffffff", width=3)
+        self.create_line(lx + lr * 0.7, ly + lr * 0.7, lx + lr * 1.75, ly + lr * 1.75, fill="#ffffff", width=4,
+                         capstyle="round")
