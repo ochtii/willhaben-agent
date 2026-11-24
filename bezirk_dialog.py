@@ -65,7 +65,7 @@ class BezirkDialog(tk.Toplevel):
         f = ttk.Frame(self, padding=12)
         f.pack(fill="both", expand=True)
         ttk.Label(f, text=f"Bezirke in {bl_name}", font=("TkDefaultFont", 12, "bold")).pack(anchor="w")
-        ttk.Label(f, text="Nichts angehakt = ganzes Bundesland. Zahl = aktuelle Anzeigen im Bezirk (alle Kategorien).",
+        ttk.Label(f, text="Nichts angehakt oder „Alle Bezirke“ = ganzes Bundesland. Zahl = aktuelle Anzeigen im Bezirk (alle Kategorien).",
                   foreground=P["muted"], wraplength=500, justify="left").pack(anchor="w", pady=(0, 6))
         self.var_suche = tk.StringVar()
         suche = ttk.Entry(f, textvariable=self.var_suche)
@@ -95,8 +95,8 @@ class BezirkDialog(tk.Toplevel):
         self.lbl_anzahl.pack(anchor="w")
         bf = ttk.Frame(f)
         bf.pack(fill="x", pady=(8, 0))
-        ttk.Button(bf, text="Alle", command=lambda: self._alle(True)).pack(side="left")
-        ttk.Button(bf, text="Keine", command=lambda: self._alle(False)).pack(side="left", padx=6)
+        # „Alle Bezirke“ = keine Einzelauswahl -> ganzes Bundesland (alle Häkchen entfernen)
+        ttk.Button(bf, text="Alle Bezirke", command=self._alle_bezirke).pack(side="left")
         ttk.Button(bf, text="Übernehmen", command=self._ok).pack(side="right")
         ttk.Button(bf, text="Abbrechen", command=self.destroy).pack(side="right", padx=6)
         self.bind("<Return>", lambda e: self._ok())
@@ -145,11 +145,10 @@ class BezirkDialog(tk.Toplevel):
                 cb.pack(anchor="w", pady=1)
         self.canvas.yview_moveto(0)
 
-    def _alle(self, wert: bool):
-        q = self.var_suche.get().strip().lower()
-        for (aid, (v, name)), (text, _) in zip(self.vars.items(), self.zeilen):
-            if not q or q in text:
-                v.set(wert)
+    def _alle_bezirke(self):
+        """Alle Häkchen entfernen (auch die gerade ausgefilterten): gesucht wird im ganzen Bundesland."""
+        for v, _name in self.vars.values():
+            v.set(False)
 
     def _zaehlen(self):
         n = sum(1 for v, _ in self.vars.values() if v.get())

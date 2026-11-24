@@ -4,6 +4,9 @@ Die Versionsnummer lautet `<VERSION>.<N>`: `VERSION` steht in der gleichnamigen 
 **N** zählt die Commits seit der letzten Änderung dieser Datei und steigt mit jedem Push automatisch.
 Die App zeigt diesen Verlauf im Über-Fenster (**?** rechts oben) unter „Neuigkeiten“.
 
+## 1.2.7 – 2026-11-24
+- Bezirksauswahl vereinfacht: „Alle Bezirke“ entfernt alle Häkchen und sucht damit im ganzen Bundesland; der Knopf „Keine“ ist entfallen
+
 ## 1.2.6 – 2026-11-24
 - Neu: Gesamtfortschritt in Prozent über alle Phasen (Suche, Beschreibungen, KI-Bewertung, Endvergleich) – oben rechts und groß in der Lauf-Ansicht
 - Der Gesamtfortschritt rückt auch während einer laufenden KI-Anfrage weiter und ist dabei animiert, damit es nicht nach Stillstand aussieht
