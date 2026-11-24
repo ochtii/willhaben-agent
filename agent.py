@@ -72,6 +72,7 @@ def main() -> int:
     try:                                     # nicht benötigte Dateien in Installationen entfernen
         import updater
         updater.aufraeumen(log=lambda m: print(m, file=sys.stderr))
+        updater.alte_menueeintraege_entfernen(log=lambda m: print(m, file=sys.stderr))
     except Exception:
         pass
 

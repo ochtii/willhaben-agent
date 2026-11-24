@@ -18,7 +18,7 @@ Der Installer
 - sucht ein Python mit Tkinter (installiert `python3-tk` / `python3-venv` bei Bedarf per `sudo`, unterstützt apt/dnf/pacman/zypper),
 - kopiert **nur die zum Betrieb und für Updates nötigen Dateien** (Liste: `laufzeit-dateien.txt`) nach `~/.local/share/willhaben-agent` und entfernt dort alles andere,
 - legt dort eine eigene Python-Umgebung (`.venv/`) an, es wird nichts systemweit per pip installiert,
-- erstellt die Startbefehle `willhaben-agent` / `willhaben-agent-cli` in `~/.local/bin`, die Startmenü-Einträge **„Willhaben KI-Agent“** und **„… (mit Terminal)“** sowie ein Symbol auf dem Schreibtisch,
+- erstellt die Startbefehle `willhaben-agent` / `willhaben-agent-cli` in `~/.local/bin`, den Startmenü-Eintrag **„Willhaben KI-Agent“** sowie ein Symbol auf dem Schreibtisch,
 - bietet am Ende an, den **heruntergeladenen Quellordner zu löschen**, weil er nicht mehr gebraucht wird. Hat ein Git-Klon ungesicherte Änderungen, warnt er und fragt mit Standard „nein“. Optionen: `--quelle-behalten`, `--quelle-loeschen`.
 
 Anderer Installationsort: `WILLHABEN_AGENT_HOME=/pfad ./install.sh`
@@ -29,7 +29,7 @@ eintragen: siehe **[ANLEITUNG-API-KEY.md](ANLEITUNG-API-KEY.md)**.
 ## Starten
 
 - **Desktop:** Startmenü oder Schreibtisch → „Willhaben KI-Agent“
-- **Mit Terminal-Fenster:** „Willhaben KI-Agent (mit Terminal)“ – das Fenster erscheint, und im Terminal läuft dasselbe Protokoll mit
+- **Mit Protokoll im Terminal:** im Terminal `willhaben-agent` starten – das Fenster erscheint, und im Terminal läuft dasselbe Protokoll mit
 - **Aus dem Terminal:** `willhaben-agent`
 - **Keys im Terminal:** `willhaben-agent-cli --keys` zeigt Keys, Limits und Verbrauch. `willhaben-agent-cli --key-hinzufuegen "Privat" AIza…` speichert einen Key, `--modelle` listet die für deinen Key verfügbaren Modelle.
 - **Ohne Fenster (reine Terminal-Version):**

@@ -129,9 +129,9 @@ EOD
 chmod +x "$1"
 }
 write_desktop "$APPS/willhaben-agent.desktop" "Willhaben KI-Agent" false
-write_desktop "$APPS/willhaben-agent-terminal.desktop" "Willhaben KI-Agent (mit Terminal)" true
+rm -f "$APPS/willhaben-agent-terminal.desktop"      # früherer zweiter Eintrag (mit Terminal) – nicht mehr nötig
 command -v update-desktop-database >/dev/null && update-desktop-database "$APPS" >/dev/null 2>&1 || true
-echo "✔ Startmenü-Einträge angelegt"
+echo "✔ Startmenü-Eintrag angelegt"
 
 DESKTOP="$(command -v xdg-user-dir >/dev/null && xdg-user-dir DESKTOP || echo "$HOME/Desktop")"
 if [ -d "$DESKTOP" ]; then

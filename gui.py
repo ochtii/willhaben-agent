@@ -495,6 +495,7 @@ class App:
         darauf hin, wenn die App noch direkt aus einem Quellordner/Git-Klon läuft."""
         try:
             updater.aufraeumen(log=lambda m: self._log(m, "info"))
+            updater.alte_menueeintraege_entfernen(log=lambda m: self._log(m, "info"))
         except Exception as e:
             self._log(f"Aufräumen nicht möglich: {e}", "warn")
         if (updater.APP_DIR / ".git").exists() and (updater.APP_DIR / "install.sh").exists() \

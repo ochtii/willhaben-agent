@@ -142,6 +142,22 @@ def aufraeumen(app_dir: Path = APP_DIR, erlaubt: set[str] | None = None, log=pri
     return entfernt
 
 
+def alte_menueeintraege_entfernen(log=print) -> list[str]:
+    """Entfernt Startmenü-Einträge früherer Versionen (z.B. den zweiten Eintrag „… (mit Terminal)“)."""
+    apps = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "applications"
+    entfernt = []
+    for name in ("willhaben-agent-terminal.desktop",):
+        p = apps / name
+        if p.is_file() and "willhaben" in p.read_text(errors="ignore").lower():
+            p.unlink()
+            entfernt.append(name)
+    if entfernt:
+        if shutil.which("update-desktop-database"):
+            subprocess.run(["update-desktop-database", str(apps)], capture_output=True, timeout=30)
+        log("🧹 Doppelten Startmenü-Eintrag entfernt: " + ", ".join(entfernt))
+    return entfernt
+
+
 def _status_lesen(app_dir: Path) -> dict:
     try:
         return json.loads((app_dir / STATUS_DATEI).read_text())
@@ -366,3 +382,4 @@ if __name__ == "__main__":
                           laufzeit_dateien(APP_DIR))
     if a.aufraeumen:
         aufraeumen(APP_DIR)
+        alte_menueeintraege_entfernen()
